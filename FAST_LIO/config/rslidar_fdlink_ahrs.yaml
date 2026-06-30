@@ -1,0 +1,56 @@
+/**:
+    ros__parameters:
+        feature_extract_enable: false
+        point_filter_num: 1
+        max_iteration: 5
+        filter_size_surf: 0.3
+        filter_size_map: 0.3
+        cube_side_length: 1000.0
+        runtime_pos_log_enable: false
+        map_file_path: "/home/medical/rs_lidar/src/FAST_LIO/PCD/test.pcd"
+
+        common:
+            # Original RoboSense point cloud from rslidar_sdk (no cloud converter).
+            lid_topic: "/rslidar_points"
+            # fdlink AHRS rotated to base_link (imu_to_base_link_node).
+            imu_topic: "/imu"
+            imu_rot_en: false
+            imu_negate_gyro: false
+            time_sync_en: false
+            time_offset_lidar_to_imu: -0.025866
+
+        preprocess:
+            lidar_type: 5
+            scan_line: 8
+            blind: 0.2
+            timestamp_unit: 0
+            scan_rate: 50
+
+        mapping:
+            # Allan variance from imu_utils A3_imu_param.yaml (avg-axis), fs=400Hz
+            # gyr_cov = gyr_n^2 * fs, acc_cov = acc_n^2 * fs
+            # b_gyr_cov = gyr_w^2, b_acc_cov = acc_w^2
+            gyr_cov: 5.40e-04
+            acc_cov: 3.15e-02
+            b_gyr_cov: 5.02e-10
+            b_acc_cov: 2.30e-08
+            laser_point_cov: 0.05
+            fov_degree: 120.0
+            det_range: 15.0
+            extrinsic_est_en: false
+            extrinsic_T: [0.158834, 0.099392, -0.028614]
+            extrinsic_R: [ 0.004924,  0.036900, -0.999307,
+                          -0.002143, -0.999316, -0.036911,
+                          -0.999986,  0.002324, -0.004841]
+
+        publish:
+            path_en: true
+            effect_map_en: false
+            map_en: true
+            scan_publish_en: true
+            dense_publish_en: false
+            scan_bodyframe_pub_en: true
+
+        pcd_save:
+            pcd_save_en: true
+            interval: -1

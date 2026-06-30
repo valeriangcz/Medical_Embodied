@@ -1,0 +1,80 @@
+# ROS2 workspace
+build/
+install/
+log/
+devel/
+
+# Point cloud / map data
+*.pcd
+*.ply
+*.las
+*.laz
+*.pts
+*.vtx
+*.xyz
+PCD/
+map/
+maps/
+*.pgm
+*.pbstream
+
+# ROS bag / recording
+*.bag
+*.db3
+*.mcap
+*.active
+
+# Archives & large binaries
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+*.bin
+*.dat
+
+# Runtime logs & calibration output
+Log/
+logs/
+result/
+*.log
+*.csv
+
+# Large demo / runtime media (keep small readme images)
+**/Excitation.gif
+
+# Build artifacts
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.o
+*.a
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+*.whl
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+
+# Generated / local config
+*.cur_trans
+version.h
+*.pb.cc
+*.pb.h

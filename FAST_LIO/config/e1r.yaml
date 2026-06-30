@@ -1,0 +1,61 @@
+/**:
+    ros__parameters:
+        feature_extract_enable: false
+        point_filter_num: 1
+        max_iteration: 3
+        filter_size_surf: 0.1
+        filter_size_map: 0.25
+        cube_side_length: 1000.0
+        runtime_pos_log_enable: false
+        map_file_path: "/home/medical/rs_lidar/src/FAST_LIO/PCD/test.pcd"
+
+        common:
+            lid_topic:  "/rslidar_points"
+            imu_topic:  "/imu/link1"   # raw IMU from rslidar_sdk (frame_id: rslidar)
+            # v_out = imu_rot_R * v_in; quaternion xyzw [-0.800450, -0.004803, 0.599370, -0.003596]
+            imu_rot_en: true
+            imu_negate_gyro: false
+            imu_rot_R: [ 1.0,  0.0, -0.0,
+                         0.0, 1.0, -0.0,
+                         0.0, 0.0, 1.0 ]
+            time_sync_en: true         # ONLY turn on when external time synchronization is really not possible
+            time_offset_lidar_to_imu: -0.010642 # Time offset between lidar and IMU calibrated by other algorithms, e.g. LI-Init (can be found in README).
+                                        # This param will take effect no matter what time_sync_en is. So if the time offset is not known exactly, please set as 0.0
+
+        preprocess:
+            lidar_type: 5                # 1 Livox, 2 Velodyne, 3 Ouster, 4 MID360, 5 RoboSense PointCloud2 (/rslidar_points)
+            scan_line:  5
+            blind: 0.2
+            timestamp_unit: 0
+            scan_rate: 40
+
+        mapping:
+            # IMU 过程噪声：越小越信任 IMU 传播（走廊建议 0.0003~0.001）
+            gyr_cov: 5.40e-04
+            acc_cov: 3.15e-02
+            b_gyr_cov: 5.02e-10
+            b_acc_cov: 2.30e-08
+            # 激光点测量噪声：越大点云对 odom 拉力越弱（默认 0.001；走廊可 0.01~0.05）
+            laser_point_cov: 0.001
+            fov_degree:    120.0
+            det_range:     15.0
+            extrinsic_est_en:  false      # true: enable the online estimation of IMU-LiDAR extrinsic
+            extrinsic_T: [ 0.04500, -0.028500,-0.061000  ]
+            # extrinsic_T: [ 0.0, -0.0, -0.0 ]
+
+            extrinsic_R: [ 1., 0., 0.,
+                            0., 1., 0.,
+                            0., 0., 1.]
+
+        publish:
+            path_en: true                # true: publish Path
+            effect_map_en: false         # true: publish Effects
+            map_en: true                 # true: publish Map cloud
+            scan_publish_en:  true       # false: close all the point cloud output
+            dense_publish_en: false      # false: low down the points number in a global-frame point clouds scan.
+            scan_bodyframe_pub_en: true  # true: output the point cloud scans in IMU-body-frame
+
+        pcd_save:
+            pcd_save_en: true
+            interval: -1                 # how many LiDAR frames saved in each pcd file; 
+                                        # -1 : all frames will be saved in ONE pcd file, may lead to memory crash when having too much frames.

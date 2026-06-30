@@ -1,0 +1,9 @@
+<launch>
+    <node pkg="imu_utils" exec="imu_allan" name="imu_allan">
+        <param name="imu_topic" value="/imu"/>
+        <param name="imu_name" value="A3"/>
+        <param name="data_save_path" value="/home/medical/rs_lidar/src/imu_utils_ros2/data/"/>
+        <param name="max_time_min" value="120"/>
+        <param name="max_cluster" value="100"/>
+    </node>
+</launch>

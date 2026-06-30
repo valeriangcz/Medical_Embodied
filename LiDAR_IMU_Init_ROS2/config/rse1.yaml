@@ -1,0 +1,40 @@
+laser_mapping:
+  ros__parameters:
+    common:
+        lid_topic:  "/rslidar_points"
+        imu_topic:  "/imu"
+
+    preprocess:
+        lidar_type: 7                # RoboSense E1/RSE1, use the AIRY parser path for XYZIRT PointCloud2
+        scan_line: 8
+        blind: 0.2
+        feature_extract_en: false
+
+    initialization:
+        cut_frame: true
+        cut_frame_num: 5
+        orig_odom_freq: 10
+        mean_acc_norm: 9.805
+        online_refine_time: 50.0
+        data_accum_length: 500.0
+        Rot_LI_cov: [ 0.00005, 0.00005, 0.00005 ]
+        Trans_LI_cov: [ 0.0001, 0.0001, 0.0001 ]
+
+    mapping:
+        filter_size_surf: 0.05
+        filter_size_map: 0.3
+        gyr_cov: 50.0
+        acc_cov: 0.5
+        b_acc_cov: 0.0001
+        b_gyr_cov: 0.0001
+        det_range: 60.0
+
+    publish:
+        path_en: true
+        scan_publish_en: true
+        dense_publish_en: false
+        scan_bodyframe_pub_en: true
+
+    pcd_save:
+        pcd_save_en: false
+        interval: -1
