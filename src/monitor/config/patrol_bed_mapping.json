@@ -1,5 +1,5 @@
 {
-  "_comment": "巡诊点-床位映射: detection_index 为 YOLO 检测框序号(从0开始), bed_id 为对应导航床位编号。调试时按实际情况调整 bed_id 即可。",
+  "_comment": "巡诊点-床位映射(回退配置): 当 waypoints.yaml 不可用时使用。detection_index 为床位序号(从0开始), bed_id 为导航 waypoint index。waypoints.yaml 正常加载时本文件不生效。",
   "patrol_points": [
     {
       "patrol_id": 0,

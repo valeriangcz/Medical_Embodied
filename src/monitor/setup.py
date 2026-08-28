@@ -18,6 +18,15 @@ def collect_data_files():
             if file.endswith('.py'):
                 launch_files.append(f'launch/{file}')
     data_files.append(('share/' + package_name + '/launch', launch_files))
+
+    # scripts 辅助脚本（conda 环境包装等）
+    scripts_files = []
+    if os.path.exists('scripts'):
+        for file in os.listdir('scripts'):
+            if file.endswith('.sh'):
+                scripts_files.append(f'scripts/{file}')
+    if scripts_files:
+        data_files.append(('share/' + package_name + '/scripts', scripts_files))
     
     # face_database 文件
     face_db_files = []
@@ -71,6 +80,7 @@ setup(
         'torch>=2.0.0',              # 新增：PyTorch
         'torchvision>=0.15.0',       # 新增：TorchVision
         'Pillow>=10.0.0',            # 新增：PIL
+        'openai>=1.0.0',             # 新增：VLM API 调用
     ],
     zip_safe=True,
     maintainer='val',
@@ -83,9 +93,8 @@ setup(
             'monitor_mock_pub = monitor.monitor_mock_pub:main',
             'anomaly_detect_server = monitor.anomaly_detect_server:main',
             'face_identify_server = monitor.face_identify_server:main',
-            'bed_detection_server = monitor.bed_detection_server:main',
-            'mock_patrol_detection_server = monitor.mock_patrol_detection_server:main',
-            'mock_camera = monitor.mock_camera:main',
+            'bed_detection_server = monitor.bed_detection_server:main',      # 新增
+            'mock_camera = monitor.mock_camera:main',                        # 新增
         ],
     },
 )

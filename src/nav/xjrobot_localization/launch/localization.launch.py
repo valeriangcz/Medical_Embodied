@@ -26,7 +26,7 @@ def launch_setup(context, *args, **kwargs):
     # 主参数文件占位符，作为整个 localization launch 的统一配置入口
     config_file = LaunchConfiguration("config_file").perform(context)
     localization_config = os.path.join(package_path, "config", config_file)
-    map_file_path = os.path.join("/home/medical/maps", "lio_map_0630.pcd")
+    map_file_path = os.path.join("/home/medical/maps", "map_0828_2.pcd")
 
     try:
         with open(localization_config, "r", encoding="utf-8") as file:

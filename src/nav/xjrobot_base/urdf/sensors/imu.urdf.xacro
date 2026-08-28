@@ -5,10 +5,11 @@
 
     <joint name="joint_imu" type="fixed">
       <!-- 固定 TF: lidar_3d_link -> imu_link
-           实机链路中，MID360 原始数据先由 mid360_rotation_node 同步旋转到
-           lidar_3d_link / imu_link 坐标系，再进入后续定位与融合模块。
-           因此这里保留的是“补偿后的雷达系 -> 补偿后的 IMU 系”的固定物理外参，
-           需与 xjrobot_localization/config/mid360.yaml 中的 extrinsic_T / extrinsic_R 保持一致。 -->
+           注意：此 imu_link 仅用于 EKF/可视化等次要链路（EKF 当前只融合 wz 角速度，
+           不依赖 imu_link 位姿）；最终 map->base_footprint 定位链路
+           （map_odom_tf_publisher 走 base_footprint->base_link->lidar_3d_link）不经过 imu_link。
+           因此这里的数值与 xjrobot_localization/config/e1r.yaml（或 mid360.yaml）的
+           extrinsic_T / extrinsic_R 不一致不会直接导致定位转弯失配，但建议实机复测安装位姿后统一。 -->
       <origin xyz="-0.03975383 0.011 -0.03014352" rpy="0.0 0.0 0.0" />
       <parent link="lidar_3d_link" />
       <child link="imu_link" />

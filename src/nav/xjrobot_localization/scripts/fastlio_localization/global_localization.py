@@ -67,6 +67,9 @@ class FastLIOLocalization(Node):
                 ("warning_log_period", 5.0),
                 ("coarse_correspondence_distance", 15.0),
                 ("fine_correspondence_distance", 3.0),
+                # true: 精配准使用点-面 ICP（需要地图法向量，yaw 可观测性更好，转弯后纠正更可靠）；
+                # false: 全部使用点-点 ICP（旧行为）。
+                ("use_point_to_plane", True),
             ],
         )
         self.last_warning_log_times = {}
@@ -129,16 +132,40 @@ class FastLIOLocalization(Node):
     
     def registration_at_scale(self, scan, map, initial, scale):
         if scale >= 5:
+            # 粗配准保持点-点 ICP 兜底，鲁棒性优先
             max_correspondence_distance = self.get_parameter("coarse_correspondence_distance").value
+            estimation = o3d.pipelines.registration.TransformationEstimationPointToPoint()
         else:
+            # 精配准：可选点-面 ICP，yaw 可观测性更好；目标点云需带法向量
             max_correspondence_distance = self.get_parameter("fine_correspondence_distance").value
+            use_plane = self.get_parameter("use_point_to_plane").value and map.has_normals()
+            if use_plane:
+                estimation = o3d.pipelines.registration.TransformationEstimationPointToPlane()
+            else:
+                estimation = o3d.pipelines.registration.TransformationEstimationPointToPoint()
+
+        scan_down = self.voxel_down_sample(
+            scan, self.get_parameter("scan_voxel_size").value * scale)
+        map_down = self.voxel_down_sample(
+            map, self.get_parameter("map_voxel_size").value * scale)
+
+        # voxel 下采样可能丢失法向量（取决于 Open3D 版本），丢失时重估或退回点-点
+        if use_plane and not map_down.has_normals():
+            try:
+                map_down.estimate_normals(
+                    o3d.geometry.KDTreeSearchParamHybrid(
+                        radius=self.get_parameter("map_voxel_size").value * scale * 4.0,
+                        max_nn=30))
+            except Exception:
+                estimation = o3d.pipelines.registration.TransformationEstimationPointToPoint()
+
         result_icp = o3d.pipelines.registration.registration_icp(
-        self.voxel_down_sample(scan, self.get_parameter("scan_voxel_size").value * scale),
-        self.voxel_down_sample(map, self.get_parameter("map_voxel_size").value * scale),
-        max_correspondence_distance,
-        initial,
-        o3d.pipelines.registration.TransformationEstimationPointToPoint(),
-        o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=20),
+            scan_down,
+            map_down,
+            max_correspondence_distance,
+            initial,
+            estimation,
+            o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=20),
         )
         return result_icp.transformation, result_icp.fitness
             
@@ -207,6 +234,11 @@ class FastLIOLocalization(Node):
             )
         global_map_in_FOV = o3d.geometry.PointCloud()
         global_map_in_FOV.points = o3d.utility.Vector3dVector(np.squeeze(global_map_in_map[indices, :3]))
+        # 裁剪时同步保留法向量，供点-面 ICP 使用
+        if self.global_map.has_normals():
+            global_map_normals = np.asarray(self.global_map.normals)
+            if len(global_map_normals) == global_map_in_map.shape[0]:
+                global_map_in_FOV.normals = o3d.utility.Vector3dVector(global_map_normals[indices])
         self.last_submap_points = len(global_map_in_FOV.points)
 
         header = self.cur_odom.header
@@ -348,6 +380,19 @@ class FastLIOLocalization(Node):
         self.global_map = self.voxel_down_sample(self.global_map, self.get_parameter("map_voxel_size").value)
         self.last_status = "map_ready"
         self.get_logger().info(f"Global map ready with {len(self.global_map.points)} points after downsampling.")
+
+        # 预计算地图法向量，供点-面 ICP 使用（use_point_to_plane=true 时生效）
+        try:
+            if not self.global_map.has_normals():
+                self.global_map.estimate_normals(
+                    o3d.geometry.KDTreeSearchParamHybrid(
+                        radius=self.get_parameter("map_voxel_size").value * 4.0,
+                        max_nn=30))
+            self.get_logger().info(
+                f"Global map normals ready ({len(np.asarray(self.global_map.normals))} normals).")
+        except Exception as e:
+            self.get_logger().warn(
+                f"Failed to estimate map normals, will fall back to point-to-point ICP: {e}")
 
     def cb_initialize_pose(self, msg):
         self.initialized = True

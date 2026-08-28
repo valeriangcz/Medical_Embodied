@@ -262,7 +262,7 @@ namespace {
             // change_to_asr();
 
             // 测试用，有的时候一次呼叫没有用
-            hzc::asr->resume();
+            // hzc::asr->resume();
         }).detach();
     }
 

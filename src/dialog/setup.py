@@ -20,7 +20,10 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'llm_mock_server = dialog.llm_mock_server:main',
+            # 注意: 实现文件是 bt_hci_interface.py (类 LLMMockServer)。
+            # 历史提交 56482a4 把 llm_mock_server.py 重构为 bt_hci_interface.py 时
+            # 漏改了这里的入口点, 导致启动报 ModuleNotFoundError: dialog.llm_mock_server。
+            'llm_mock_server = dialog.bt_hci_interface:main',
             'llm_mock_client = dialog.llm_mock_client:main',
         ],
     },

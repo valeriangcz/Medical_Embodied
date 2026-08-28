@@ -77,6 +77,16 @@ install(DIRECTORY face_database
   DESTINATION share/${PROJECT_NAME}
 )
 
+# 辅助脚本 (conda 环境包装等), 供 launch 文件通过 prefix 使用
+# 注意: 必须保留可执行权限, 否则 launch prefix 无法运行
+install(FILES scripts/conda_activate.sh
+  DESTINATION share/${PROJECT_NAME}/scripts
+  PERMISSIONS
+    OWNER_READ OWNER_WRITE OWNER_EXECUTE
+    GROUP_READ GROUP_EXECUTE
+    WORLD_READ WORLD_EXECUTE
+)
+
 # Package manifest
 install(FILES package.xml
   DESTINATION share/${PROJECT_NAME}

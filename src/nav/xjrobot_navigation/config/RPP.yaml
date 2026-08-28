@@ -65,8 +65,9 @@ controller_server:
     general_goal_checker:
       stateful: True                     # 到点后保持状态，减少振荡
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.25            # 平面位置容差，m
-      yaw_goal_tolerance: 0.25           # 朝向容差，rad
+      # 到点容差收紧：xy 0.25->0.10 m、yaw 0.15->0.05 rad，改善“到达目标点后旋转过头/停不准”
+      xy_goal_tolerance: 0.15            # 平面位置容差，m
+      yaw_goal_tolerance: 0.08           # 朝向容差，rad
 
     FollowPath:
       # 采用 RotationShim + RPP 组合控制器
@@ -76,7 +77,7 @@ controller_server:
       angular_dist_threshold: 0.785      # 偏航过大时先原地转向
       angular_disengage_threshold: 0.3925 # 朝向误差小于该值后切回 RPP 跟踪
       forward_sampling_distance: 0.5     # 沿路径向前采样用于估计目标朝向的距离，m
-      rotate_to_heading_angular_vel: 0.7 # 原地对齐路径朝向时的角速度，rad/s
+      rotate_to_heading_angular_vel: 0.3 # 原地对齐路径朝向时的角速度，rad/s（0.7->0.3，减慢末端旋转避免旋转过头）
       max_angular_accel: 1.5             # 原地对齐时允许的最大角加速度，rad/s^2
       simulate_ahead_time: 1.0           # 旋转前向碰撞仿真时间，s
       rotate_to_goal_heading: true       # 到达目标位置后是否再对齐目标朝向

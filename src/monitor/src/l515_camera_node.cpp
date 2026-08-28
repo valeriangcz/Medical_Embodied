@@ -22,6 +22,7 @@
 #include <atomic>
 #include <memory>
 #include <string>
+#include <chrono>
 
 class L515CameraNode : public rclcpp::Node
 {
@@ -66,6 +67,7 @@ private:
     declare_parameter("camera_namespace", "camera");
     declare_parameter("l515_preset", "short_range");
     declare_parameter("publish_depth", true);
+    declare_parameter("initial_reset", true);
   }
 
   void get_params()
@@ -81,6 +83,7 @@ private:
     camera_namespace_  = get_parameter("camera_namespace").as_string();
     l515_preset_       = get_parameter("l515_preset").as_string();
     publish_depth_     = get_parameter("publish_depth").as_bool();
+    initial_reset_     = get_parameter("initial_reset").as_bool();
 
     // Build topic strings to match realsense2_camera convention
     const std::string prefix = "/" + camera_namespace_ + "/" + camera_name_;
@@ -105,6 +108,10 @@ private:
   // ── pipeline setup ────────────────────────────────────────────────────
   void start_pipeline()
   {
+    if (initial_reset_) {
+      perform_initial_reset();
+    }
+
     if (!serial_no_.empty()) {
       cfg_.enable_device(serial_no_);
     }
@@ -123,6 +130,38 @@ private:
     publish_camera_info();
   }
 
+  // L515 固件有时会卡死在错误状态（set_xu 报 Device or resource busy、
+  // 深度全部失真），启动前做一次硬件复位可恢复。与 realsense2_camera 的
+  // initial_reset 参数行为一致；复位后等待设备重新枚举。
+  void perform_initial_reset()
+  {
+    rs2::context ctx;
+    if (ctx.query_devices().size() == 0) {
+      RCLCPP_WARN(get_logger(), "No device found, skip initial reset");
+      return;
+    }
+    rs2::device dev = ctx.query_devices()[0];
+    if (!serial_no_.empty() &&
+        dev.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER) != serial_no_) {
+      return;  // 指定了序列号但不匹配，不重置
+    }
+
+    RCLCPP_INFO(get_logger(), "Performing hardware reset (L515 firmware recovery)...");
+    try {
+      dev.hardware_reset();
+    } catch (const rs2::error & e) {
+      RCLCPP_WARN(get_logger(), "hardware_reset failed: %s", e.what());
+      return;
+    }
+
+    // 注意：复位后不能在本函数内创建新 context 轮询设备——旧 context /
+    // 设备句柄还存活，新 context 的 USB 枚举会被旧句柄阻塞（实测死锁）。
+    // 固定等待重枚举（通常 3-6 秒），随后 pipe_.start() 用全新 context
+    // 自然重新枚举设备。
+    std::this_thread::sleep_for(std::chrono::seconds(6));
+    RCLCPP_INFO(get_logger(), "Hardware reset done, starting pipeline...");
+  }
+
   void apply_l515_preset()
   {
     // Map preset name to RS2 enum value
@@ -139,11 +178,20 @@ private:
       if (s.is<rs2::depth_sensor>()) {
         auto depth = s.as<rs2::depth_sensor>();
         if (depth.supports(RS2_OPTION_VISUAL_PRESET)) {
-          try {
-            depth.set_option(RS2_OPTION_VISUAL_PRESET, static_cast<float>(preset));
-            RCLCPP_INFO(get_logger(), "L515 visual preset set to '%s'", l515_preset_.c_str());
-          } catch (const rs2::error & e) {
-            RCLCPP_WARN(get_logger(), "Failed to set L515 preset: %s", e.what());
+          // 流启动后立即设置 XU 控件偶发 Device or resource busy，
+          // 重试多次（间隔递增）直至成功
+          for (int attempt = 1; attempt <= 5; ++attempt) {
+            try {
+              depth.set_option(RS2_OPTION_VISUAL_PRESET, static_cast<float>(preset));
+              RCLCPP_INFO(get_logger(), "L515 visual preset set to '%s'",
+                          l515_preset_.c_str());
+              return;
+            } catch (const rs2::error & e) {
+              RCLCPP_WARN(get_logger(),
+                "Set L515 preset attempt %d/5 failed: %s",
+                attempt, e.what());
+              std::this_thread::sleep_for(std::chrono::milliseconds(1000 * attempt));
+            }
           }
         }
         return;
@@ -256,8 +304,18 @@ private:
     msg.encoding = "mono16";          // 16-bit unsigned, mm
     msg.is_bigendian = false;
     msg.step     = static_cast<uint32_t>(f.get_width() * 2);
-    const auto * data = reinterpret_cast<const uint8_t *>(f.get_data());
-    msg.data.assign(data, data + msg.height * msg.step);
+
+    // 传感器原始 Z16 单位不一定是 1mm（L515 为 0.25mm）。
+    // 按帧的实际 units 缩放到 mm 再发布，保证下游按 D455 约定（mono16=mm）处理正确。
+    const float scale_to_mm = static_cast<float>(f.get_units()) * 1000.0f;
+    const int w = f.get_width(), h = f.get_height();
+    std::vector<uint16_t> scaled(static_cast<size_t>(w) * h);
+    const auto * src = reinterpret_cast<const uint16_t *>(f.get_data());
+    for (size_t i = 0; i < scaled.size(); ++i) {
+      scaled[i] = static_cast<uint16_t>(src[i] * scale_to_mm + 0.5f);
+    }
+    const auto * out = reinterpret_cast<const uint8_t *>(scaled.data());
+    msg.data.assign(out, out + scaled.size() * sizeof(uint16_t));
 
     depth_pub_->publish(msg);
   }
@@ -275,6 +333,7 @@ private:
   int depth_width_, depth_height_, depth_fps_;
   std::string camera_name_, camera_namespace_, l515_preset_;
   bool publish_depth_;
+  bool initial_reset_{true};
 
   std::string color_topic_, depth_topic_, cinfo_topic_;
   std::string color_frame_id_, depth_frame_id_;

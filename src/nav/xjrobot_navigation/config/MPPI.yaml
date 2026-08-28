@@ -65,8 +65,9 @@ controller_server:
     general_goal_checker:
       stateful: True                     # 到点后保持状态，减少振荡
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.35            # 平面位置容差，m
-      yaw_goal_tolerance: 0.35           # 朝向容差，rad
+      # 到点容差收紧：xy 0.35->0.10 m、yaw 0.15->0.05 rad，改善“到达目标点后旋转过头/停不准”
+      xy_goal_tolerance: 0.20            # 平面位置容差，m
+      yaw_goal_tolerance: 0.05           # 朝向容差，rad
 
     FollowPath:
       plugin: "nav2_mppi_controller::MPPIController" # MPPI 局部轨迹优化控制器

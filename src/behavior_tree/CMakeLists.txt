@@ -11,6 +11,7 @@ find_package(ament_index_cpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(interfaces REQUIRED)
 find_package(behaviortree_cpp REQUIRED)
+find_package(yaml-cpp REQUIRED)
 
 
 
@@ -29,6 +30,7 @@ add_executable(ros_bt_runner src/ros_bt_runner.cpp)
 ament_target_dependencies(ros_bt_runner 
 rclcpp rclcpp_action ament_index_cpp std_msgs 
 interfaces behaviortree_cpp)
+target_link_libraries(ros_bt_runner yaml-cpp)
 
 
 install(TARGETS
@@ -41,8 +43,13 @@ install(TARGETS
 
 install(PROGRAMS
   scripts/format_ros_test_log.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME format_ros_test_log
+)
+install(PROGRAMS
   scripts/medical_bt_ros_test_driver.py
   DESTINATION lib/${PROJECT_NAME}
+  RENAME medical_bt_ros_test_driver
 )
 
 install(DIRECTORY BH_xml assets launch

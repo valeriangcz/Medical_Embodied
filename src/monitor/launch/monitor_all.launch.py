@@ -40,6 +40,16 @@ def generate_launch_description():
             default_value='short_range',
             description='L515 visual preset: short_range | no_ambient | low_ambient | max_range | default'
         ),
+        DeclareLaunchArgument(
+            'waypoints_config_path',
+            default_value='',
+            description='导航waypoints.yaml路径（留空自动查找 xjrobot_bridge 包内 config/waypoints.yaml）'
+        ),
+        DeclareLaunchArgument(
+            'vlm_model',
+            default_value='qwen3.8-flash',
+            description='VLM模型名（DashScope）'
+        ),
 
         # ==================== 相机 (L515 via librealsense2 C++) ====================
         IncludeLaunchDescription(
@@ -62,6 +72,8 @@ def generate_launch_description():
             launch_arguments={
                 'use_mock_camera': LaunchConfiguration('use_mock_camera'),
                 'camera_topic': LaunchConfiguration('camera_topic'),
+                'waypoints_config_path': LaunchConfiguration('waypoints_config_path'),
+                'vlm_model': LaunchConfiguration('vlm_model'),
             }.items(),
         ),
 

@@ -23,101 +23,38 @@ xjrobot_bridge_node:
     waypoint_ids:
       - dock_staging
       - patrol_0
-      - patrol_1
-      - bed_1
-      - bed_2
-      - bed_3
-      - bed_4
-      - bed_5
-      - bed_6
-      - bed_7
-      - bed_8
+      - bed_0_0
+      - bed_0_1
     waypoints:
       # 充电桩前候位点：请根据实机标定 x/y/yaw，机器人应能在此位置看到 AprilTag。
       dock_staging:
         index: 100
         name: charge_staging
         frame_id: map
-        x: -0.056
-        y: -0.018
-        yaw: -1.52
+        x: 1.0
+        y: -0.0
+        yaw: 0.0
 
       patrol_0:
         index: 0
         name: corridor_left_mid
         frame_id: map
-        x: 3.21
-        y: 0.07
-        yaw: -1.44
-        
-      patrol_1:
-        index: 1
-        name: corridor_right_mid
-        frame_id: map
-        x: 3.21
-        y: 0.07
-        yaw: -1.44
+        x: 1.36
+        y: 3.30
+        yaw: 0.08
 
-      bed_1:
+      bed_0_0:
         index: 2
+        name: patrol_0_0
+        frame_id: map
+        x: 2.766
+        y: 3.42
+        yaw: 0.29
+
+      bed_0_1:
+        index: 3
         name: patrol_0_1
         frame_id: map
-        x: 3.34
-        y: -1.49
-        yaw: 0.125
-
-      bed_2:
-        index: 3
-        name: patrol_0_2
-        frame_id: map
-        x: 3.44
-        y: -3.76
-        yaw: 0.125
-
-      bed_3:
-        index: 4
-        name: patrol_0_3
-        frame_id: map
-        x: 3.34
-        y: -1.49
-        yaw: -3.0
-
-      bed_4:
-        index: 5
-        name: patrol_0_4
-        frame_id: map
-        x: 3.44
-        y: -3.76
-        yaw: -3.0
-
-      bed_5:
-        index: 6
-        name: patrol_1_1
-        frame_id: map
-        x: 3.34
-        y: -1.49
-        yaw: 0.125
-
-      bed_6:
-        index: 7
-        name: patrol_1_2
-        frame_id: map
-        x: 3.44
-        y: -3.76
-        yaw: 0.125
-
-      bed_7:
-        index: 8
-        name: patrol_1_3
-        frame_id: map
-        x: 3.34
-        y: -1.49
-        yaw: -3.0
-
-      bed_8:
-        index: 9
-        name: patrol_1_4
-        frame_id: map
-        x: 3.44
-        y: -3.76
-        yaw: -3.0
+        x: 2.159
+        y: -2.016
+        yaw: -1.473

@@ -9,8 +9,8 @@ from launch_ros.substitutions import FindPackageShare
 # 实机默认地图：
 # - DEFAULT_MAP_PATH：Nav2 使用的 2D 栅格地图 yaml
 # - DEFAULT_PCD_MAP_PATH：FastLIO / 全局重定位使用的 3D PCD 地图
-DEFAULT_MAP_PATH = "/home/medical/maps/lio_map_0630.yaml"
-DEFAULT_PCD_MAP_PATH = "/home/medical/maps/lio_map_0630.pcd"
+DEFAULT_MAP_PATH = "/home/medical/maps/map_0828_2.yaml"
+DEFAULT_PCD_MAP_PATH = "/home/medical/maps/map_0828_2.pcd"
 
 
 def generate_launch_description():

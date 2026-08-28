@@ -24,14 +24,14 @@ xjrobot_bridge_node:
       - dock_staging
       - patrol_0
       - patrol_1
-      - bed_1
-      - bed_2
-      - bed_3
-      - bed_4
-      - bed_5
-      - bed_6
-      - bed_7
-      - bed_8
+      - bed_0_0
+      - bed_0_1
+      - bed_0_2
+      - bed_0_3
+      - bed_1_0
+      - bed_1_1
+      - bed_1_2
+      - bed_1_3
     waypoints:
       # 充电桩前候位点：请根据实机标定 x/y/yaw，机器人应能在此位置看到 AprilTag。
       dock_staging:
@@ -58,65 +58,65 @@ xjrobot_bridge_node:
         y: -1.48
         yaw: 0.06
 
-      bed_1:
+      bed_0_0:
         index: 2
-        name: patrol_0_1
+        name: patrol_0_0
         frame_id: map
         x: 4.72
         y: -1.48
         yaw: 0.06
 
-      bed_2:
+      bed_0_1:
         index: 3
-        name: patrol_0_2
+        name: patrol_0_1
         frame_id: map
         x: 4.64
         y: -3.70
         yaw: 0.19
 
-      bed_3:
+      bed_0_2:
         index: 4
-        name: patrol_0_3
+        name: patrol_0_2
         frame_id: map
         x: 4.72
         y: -1.48
         yaw: -3.081
 
-      bed_4:
+      bed_0_3:
         index: 5
-        name: patrol_0_4
+        name: patrol_0_3
         frame_id: map
         x: 4.64
         y: -3.70
         yaw: -2.951
 
-      bed_5:
+      bed_1_0:
         index: 6
-        name: patrol_1_1
+        name: patrol_1_0
         frame_id: map
         x: 4.72
         y: -1.48
         yaw: 0.06
 
-      bed_6:
+      bed_1_1:
         index: 7
-        name: patrol_1_2
+        name: patrol_1_1
         frame_id: map
         x: 4.64
         y: -3.70
         yaw: 0.19
 
-      bed_7:
+      bed_1_2:
         index: 8
-        name: patrol_1_3
+        name: patrol_1_2
         frame_id: map
         x: 4.72
         y: -1.48
         yaw: -3.081
 
-      bed_8:
+      bed_1_3:
         index: 9
-        name: patrol_1_4
+        name: patrol_1_3
         frame_id: map
         x: 4.64
         y: -3.70

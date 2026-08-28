@@ -64,7 +64,7 @@ class MedicalBtRosTestDriver(Node):
         self._last_call_signal_published = False
 
         # ---------- 各模拟模块独立开关（默认 True，关闭后由真实节点接管） ----------
-        self.declare_parameter('sim_navigate', False)        # 模拟导航 Action（含进度反馈）
+        self.declare_parameter('sim_navigate', True)        # 模拟导航 Action（含进度反馈）
         self.declare_parameter('sim_llm', False)             # 模拟 LLM 交互 Action
         self.declare_parameter('sim_call_nurse', False)      # 模拟呼叫护士 Action
         self.declare_parameter('sim_detect_anomaly', True)  # 模拟异常检测服务

@@ -7,7 +7,7 @@ laser_mapping:
         filter_size_map: 0.2
         cube_side_length: 1000.0
         runtime_pos_log_enable: false
-        map_file_path: "/home/medical/maps/lio_map_0630.pcd"
+        map_file_path: "/home/medical/maps/map_0828_2.pcd"
 
         common:
             lid_topic:  "/rslidar_points_fastlio"
@@ -59,9 +59,13 @@ global_localization:
     ros__parameters:
         map_voxel_size: 0.4
         scan_voxel_size: 0.1
-        freq_localization: 0.1
+        # 修复“转弯后定位角度/位置失配”：此前 freq_localization=0.1（约 10 s 才做一次地图锚定）、
+        # localization_threshold=0.90（过严，漂移稍大即拒绝纠正），转弯期间 FastLIO 的 yaw 漂移
+        # 无法及时纠正，而最终 map->base_footprint 又只由 FastLIO+本锚定决定（EKF 被抵消）。
+        # 提升到 1.0 Hz、阈值放宽到 0.75；若现场 CPU 吃紧可先降回 0.5。
+        freq_localization: 1.0
         freq_global_map: 0.25
-        localization_threshold: 0.90
+        localization_threshold: 0.75
         fov: 6.28319
         fov_far: 300
         pcd_map_topic: "/pcd_map"
@@ -75,7 +79,11 @@ global_localization:
         verbose_log: false               # true 时恢复 ICP 过程详细 info，默认仅保留必要异常日志
         warning_log_period: 5.0          # 同类定位 warning 最短输出间隔，单位 s
         coarse_correspondence_distance: 15.0
-        fine_correspondence_distance: 1.5
+        # 精配准距离 1.5 -> 2.5，避免转弯漂移稍大时对应点距离超限导致配准被拒。
+        fine_correspondence_distance: 2.5
+        # true: 精配准使用点-面 ICP（需地图法向量，yaw 可观测性更好）；
+        # false: 全部使用点-点 ICP（旧行为）。
+        use_point_to_plane: true
 
 transform_fusion:
     ros__parameters:

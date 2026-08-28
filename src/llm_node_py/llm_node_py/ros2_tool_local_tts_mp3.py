@@ -133,10 +133,10 @@ if __name__ == "__main__":
     )
 
     phrases = [
-        ("你好！我在呢！", "hello_i_am_here.mp3"),
-        ("小医听到了", "xiaoyi_heard_you.mp3"),
-        ("您好，我是小医，您需要什么帮助吗？", "xiaoyi_greeting.mp3"),
-        ("没有其他事情的话，小医先走了，有问题记得叫小医。", "xiaoyi_goodbye.mp3"),
+        # ("你好！我在呢！", "hello_i_am_here.mp3"),
+        # ("小医听到啦", "xiaoyi_heard_you.mp3"),
+        # ("您好，我是小医，您需要什么帮助吗？", "xiaoyi_greeting.mp3"),
+        # ("没有其他事情的话，小医先走啦，有问题记得叫小医哦。", "xiaoyi_goodbye.mp3"),
     ]
 
     for text, filename in phrases:

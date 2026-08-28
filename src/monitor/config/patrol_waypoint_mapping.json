@@ -9,11 +9,11 @@
   "patrol_points": [
     {
       "patrol_id": 0,
-      "bed_waypoints": ["bed_1", "bed_2", "bed_3", "bed_4"]
+      "bed_waypoints": ["bed_0_0", "bed_0_1", "bed_0_2", "bed_0_3"]
     },
     {
       "patrol_id": 1,
-      "bed_waypoints": ["bed_5", "bed_6", "bed_7", "bed_8"]
+      "bed_waypoints": ["bed_1_0", "bed_1_1", "bed_1_2", "bed_1_3"]
     }
   ]
 }

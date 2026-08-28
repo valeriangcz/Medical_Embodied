@@ -198,7 +198,9 @@ class LLMMockServer(Node):
         # req.block = True
         #
         # self.tts_client.call(req)
-        play_mp3_non_blocking("xiaoyi_greeting.mp3")
+
+        # 这个如果不 block 的话，语音识别会识别到机器人说的话
+        play_mp3_blocking("xiaoyi_greeting.mp3")
         # --------------------------------------------------
 
         # 非告警模式先发送一次“收到上下文”的反馈信息。
@@ -252,6 +254,9 @@ class LLMMockServer(Node):
             # req.block = True
             #
             # self.tts_client.call(req)
+            
+            time.sleep(2.5)
+            
             play_mp3_blocking("xiaoyi_goodbye.mp3")
             # --------------------------------------------------
 

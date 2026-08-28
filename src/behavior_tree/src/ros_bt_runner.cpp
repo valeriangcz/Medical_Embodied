@@ -19,12 +19,18 @@
 #include "interfaces/srv/set_config.hpp"
 #include "mode_define.h"
 
+#include <algorithm>
 #include <chrono>
+#include <fstream>
 #include <future>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
+
+#include <yaml-cpp/yaml.h>
+
+#include <filesystem>
 
 using namespace BT;
 using namespace std::chrono_literals;
@@ -125,9 +131,82 @@ struct PatrolContext
     int cycles_total = 1;
     int cycles_remaining = 1;
     int point_index = 0;
-    std::vector<int> points = {0, 1};
+    // 巡诊点列表(waypoint index): 不再硬编码, 由 waypoints.yaml 中的 patrol_* 条目解析填充
+    std::vector<int> points;
     bool complete = false;
 };
+
+// 查找导航 waypoints.yaml 路径:
+//   1. ROS 参数 waypoints_config_path 显式指定
+//   2. ament index 中的 xjrobot_bridge 包 share/config/waypoints.yaml
+//   3. 源码目录回退: workspace/src/nav/xjrobot_bridge/config/waypoints.yaml
+std::string find_waypoints_config_path(const rclcpp::Node::SharedPtr& node)
+{
+    // 1) 参数显式指定
+    std::string param_path;
+    try {
+        param_path = node->declare_parameter<std::string>("waypoints_config_path", "");
+    } catch (const std::exception&) {
+        param_path = "";
+    }
+    if (!param_path.empty() && std::ifstream(param_path).good()) {
+        return param_path;
+    }
+    // 2) ament share 目录
+    try {
+        const std::string share =
+            ament_index_cpp::get_package_share_directory("xjrobot_bridge");
+        const std::string p = share + "/config/waypoints.yaml";
+        if (std::ifstream(p).good()) {
+            return p;
+        }
+    } catch (const std::exception&) {}
+    // 3) 源码目录回退: 从可执行文件路径向上定位 workspace 根
+    try {
+        namespace fs = std::filesystem;
+        fs::path exe = fs::read_symlink("/proc/self/exe");
+        // .../install/behavior_tree/lib/ros_bt_runner -> 向上4级 = workspace 根
+        fs::path root = exe.parent_path().parent_path().parent_path().parent_path();
+        fs::path p = root / "src" / "nav" / "xjrobot_bridge" / "config" / "waypoints.yaml";
+        if (fs::exists(p)) {
+            return p.string();
+        }
+    } catch (const std::exception&) {}
+    return "";
+}
+
+// 解析 waypoints.yaml, 提取所有 patrol_* 条目的 waypoint index, 升序排列
+std::vector<int> parse_patrol_points_from_waypoints(const std::string& path)
+{
+    std::vector<int> points;
+    if (path.empty()) {
+        return points;
+    }
+    try {
+        YAML::Node root = YAML::LoadFile(path);
+        YAML::Node params = root["xjrobot_bridge_node"]["ros__parameters"];
+        if (!params || !params.IsMap()) {
+            // 兼容平铺结构
+            params = root;
+        }
+        YAML::Node waypoints = params["waypoints"];
+        if (waypoints && waypoints.IsMap()) {
+            for (const auto& it : waypoints) {
+                const std::string key = it.first.as<std::string>();
+                if (key.rfind("patrol_", 0) == 0) {
+                    const int index = it.second["index"].as<int>(-1);
+                    if (index >= 0) {
+                        points.push_back(index);
+                    }
+                }
+            }
+        }
+        std::sort(points.begin(), points.end());
+    } catch (const std::exception& e) {
+        std::cerr << "[ros_bt_runner] 解析 waypoints.yaml 失败: " << e.what() << "\n";
+    }
+    return points;
+}
 
 template <typename T>
 void setRootValue(const Blackboard::Ptr& bb, const char* key, const T& value)
@@ -679,7 +758,7 @@ public:
         req->area_bed_id = patrol_bed_id;
 
         auto fut = anomaly_client_->async_send_request(req);
-        if (rclcpp::spin_until_future_complete(node_, fut, 2s) != rclcpp::FutureReturnCode::SUCCESS)
+        if (rclcpp::spin_until_future_complete(node_, fut, 8s) != rclcpp::FutureReturnCode::SUCCESS)
         {
             return NodeStatus::FAILURE;
         }
@@ -767,6 +846,18 @@ int main(int argc, char** argv)
     ros_ctx->battery_full_threshold = ros_node->get_parameter("battery_full_threshold").as_double();
     const auto config_id = ros_node->get_parameter("config_id").as_string();
 
+    // 巡诊点列表从 waypoints.yaml 解析 (patrol_* 条目 -> waypoint index), 不再硬编码
+    const std::string waypoints_path = find_waypoints_config_path(ros_node);
+    patrol_ctx->points = parse_patrol_points_from_waypoints(waypoints_path);
+    std::cout << "[ros_bt_runner] waypoints config: "
+              << (waypoints_path.empty() ? "(not found, patrol points empty)" : waypoints_path)
+              << "\n";
+    std::cout << "[ros_bt_runner] patrol points:";
+    for (const int p : patrol_ctx->points) {
+        std::cout << " " << p;
+    }
+    std::cout << "\n";
+
     ros_ctx->battery_sub = ros_node->create_subscription<interfaces::msg::Battery>(
         "/battery", 10, [root_bb](const interfaces::msg::Battery::SharedPtr msg) {
             setRootValue(root_bb, NodePort::battery_soc, msg->soc);
@@ -840,19 +931,25 @@ int main(int argc, char** argv)
             ros_node_ = ros_ctx->node,
             patrol_ctx, 
             config_loaded, 
-            config_id](TreeNode& node) {
+            config_id,
+            waypoints_path](TreeNode& node) {
             if (loadconfig_client->wait_for_service(2s)){
                 auto req = std::make_shared<interfaces::srv::SetConfig::Request>();
                 req->config_id = config_id;
                 auto fut = loadconfig_client->async_send_request(req);
                 if(rclcpp::spin_until_future_complete(ros_node_,fut,2s) == rclcpp::FutureReturnCode::SUCCESS && fut.get()->ok){
-                    //TODO 更新ros定义的信息，更新黑板的默认值，或更新ros_ctx的值
+                    // 巡诊点列表从 waypoints.yaml 的 patrol_* 条目解析, 不硬编码
+                    patrol_ctx->points = parse_patrol_points_from_waypoints(waypoints_path);
                     patrol_ctx->route_id = "route_a";
                     patrol_ctx->cycles_total = 1;
                     patrol_ctx->cycles_remaining = 1;
                     patrol_ctx->point_index = 0;
-                    patrol_ctx->points = {0, 1};
                     patrol_ctx->complete = false;
+                    std::cout << "[LoadConfig] patrol points from waypoints:";
+                    for (const int p : patrol_ctx->points) {
+                        std::cout << " " << p;
+                    }
+                    std::cout << "\n";
                     return NodeStatus::SUCCESS;
                 }
             }

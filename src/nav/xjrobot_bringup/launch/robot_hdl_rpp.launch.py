@@ -6,7 +6,7 @@ from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
 
 
-DEFAULT_MAP_PATH = "/home/medical/maps/lio_map_0630.yaml"
+DEFAULT_MAP_PATH = "/home/medical/maps/map_0828_2.yaml"
 
 
 def generate_launch_description():

@@ -23,7 +23,7 @@ def generate_launch_description():
         ),
         # Node(
         #     package='behavior_tree',
-        #     executable='medical_bt_ros_test_driver.py',
+        #     executable='medical_bt_ros_test_driver',
         #     name='medical_bt_ros_test_driver',
         #     output='screen',
         #     parameters=[{
