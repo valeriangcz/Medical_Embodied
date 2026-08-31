@@ -29,13 +29,14 @@ def generate_launch_description():
     )
     start_apriltag_arg = DeclareLaunchArgument(
         "start_apriltag",
-        default_value="false",
-        description="Whether to launch apriltag detector as static node (debug use)",
+        default_value="true",
+        description="Whether to launch apriltag detector (default on: provides dock_frame TF)",
     )
     enable_apriltag_on_demand_arg = DeclareLaunchArgument(
         "enable_apriltag_on_demand",
-        default_value="true",
-        description="Enable apriltag start/stop automatically with dock command",
+        default_value="false",
+        description="Enable apriltag start/stop automatically with dock command "
+                    "(disabled by default because apriltag is launched statically above)",
     )
     camera_name_arg = DeclareLaunchArgument(
         "camera_name",

@@ -42,8 +42,8 @@ def generate_launch_description():
     )
     start_apriltag_arg = DeclareLaunchArgument(
         "start_apriltag",
-        default_value="false",
-        description="Whether to launch apriltag detector node",
+        default_value="true",
+        description="Whether to launch apriltag detector node (default on: provides dock_frame TF)",
     )
     image_topic_arg = DeclareLaunchArgument(
         "image_topic",
@@ -57,8 +57,9 @@ def generate_launch_description():
     )
     enable_apriltag_on_demand_arg = DeclareLaunchArgument(
         "enable_apriltag_on_demand",
-        default_value="true",
-        description="Start/stop apriltag detector only during docking",
+        default_value="false",
+        description="Start/stop apriltag detector only during docking "
+                    "(disabled by default because apriltag is launched statically above)",
     )
     apriltag_launch_package_arg = DeclareLaunchArgument(
         "apriltag_launch_package",

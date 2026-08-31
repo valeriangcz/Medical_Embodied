@@ -3,7 +3,9 @@ qr_docking_node:
     # 目标停靠距离（米）：机器人与充电桩标签的期望最终距离
     target_distance: -0.455
     # 横向误差容忍（米）：|y 方向偏差| 小于该值视为对齐
-    horizontal_tolerance: 0.03
+    # 放宽到 0.05：倒车对接的横向-航向耦合使横向收敛到~4cm 就接近极限，
+    # 0.03 过紧导致判定差一点进不了; 0.05 可让到位判定稳定通过。
+    horizontal_tolerance: 0.05
     # 角度误差容忍（弧度）：|偏航误差| 小于该值视为朝向对齐
     angular_tolerance: 0.15
     # 线速度上限（米/秒）：前进/后退控制最大速度
@@ -13,21 +15,37 @@ qr_docking_node:
     # 丢失标签后的搜索角速度（弧度/秒）
     search_angular_speed: 0.25
 
-    # 线速度 PID 参数（距离误差 -> 线速度）
-    linear_kp: 0.5
-    linear_ki: 0.0
-    linear_kd: 0.1
-    # 角速度 PID 参数（角度/横向误差 -> 角速度）
-    angular_kp: 1.5
-    angular_ki: 0.0
-    angular_kd: 0.1
-    # 仅在 source=odom（标签丢失里程计外推）时生效的 PID 降权系数
-    odom_linear_pid_scale: 0.2
-    odom_angular_pid_scale: 0.2
+    # ================= 三段式对接几何 =================
+    # 第一阶段 LATERAL_ALIGNING：在 tag 前 lateral_align_distance 米处完成横向(y)调整，
+    # 到位后驻留直到横向误差进入容差。
+    lateral_align_distance: 1.0
+    # 第二阶段 -> 第三阶段边界：PID 抵近到 tag 前 angular_align_distance 米后，
+    # 转入第三阶段，在该位置调整自身航向(yaw)到容差内，到达充电位置。
+    # 注：最终停靠距离仍由 target_distance 决定（angular_align_distance 略大于
+    # |target_distance|，用于在最后几厘米完成航向对齐）。
+    angular_align_distance: 0.5
+    # 第一阶段横向调整时的线速度上限（米/秒）：向 1 米位置靠近要慢，留足横向纠偏时间。
+    lateral_align_linear_max_speed: 0.06
+    # 第三阶段航向对齐时的线速度上限（米/秒）：只允许极小的距离补偿，避免带歪航向。
+    angular_align_linear_max_speed: 0.03
 
-    # PID 积分项限幅（防积分饱和）
+    # 线速度 PID 参数（距离误差 -> 线速度）
+    # 用户方向：清积分、纯 P，让前进/后退响应快、积极把机器人挪到 tag 正前方。
+    linear_kp: 0.8
+    linear_ki: 0.0
+    linear_kd: 0.0
+    # 角速度控制（第三阶段 ANGULAR_ALIGNING）
+    # 航向项增益 kh（w = -klat*bearing + kh*yaw）。过大时航向项饱和、把横向带飞；
+    # 仿真验证 0.8 可让横向与航向同时进容差。
+    angular_kp: 0.8
+    # 倒车弧线（第一阶段横向、第二阶段抵近）的前视距离：沿弧线把横向归零并自然对正航向。
+    pp_lookahead: 1.0
+    # 航向测量低通滤波系数（0~1，越大越跟随原始测量）：
+    # 抑制 6cm 标签姿态在远距离处的估测抖动，避免控制器追逐噪声。
+    angular_error_alpha: 0.4
+
+    # 线速度 PID 积分项限幅（防积分饱和）
     linear_error_sum_max: 1.0
-    angular_error_sum_max: 0.5
 
     # 单次对接最大时长（秒），超时后退出本次流程
     max_docking_duration_sec: 120.0
@@ -37,8 +55,6 @@ qr_docking_node:
     max_tag_lost_sec: 10.0
     # 对接开始后的 tag 启动宽限时间（秒）：识别节点起步阶段不因无 tag 判失败
     tag_startup_grace_sec: 5.0
-    # 是否启用 tag 丢失后的里程计误差外推（true=启用，false=仅搜索）
-    enable_odom_fallback: true
     # 最大重试次数：超过后对接任务失败
     max_retry_count: 5
     # 完成判定稳定周期数：连续满足到位条件 N 个控制周期才算成功
@@ -52,36 +68,20 @@ qr_docking_node:
     retreat_duration_sec: 5.0
     # 重试后退速度（米/秒）
     retreat_speed: 0.1
-    # 重试时角速度放大系数（相对常规控制）
-    retreat_angular_factor: 1.5
-    # 重试时横向修正放大系数（相对常规控制）
-    retreat_lateral_factor: 0.5
+    # 重试时角速度放大系数：压到极小，让重退专心纠横向、不再用航向项抵消横向修正
+    retreat_angular_factor: 0.15
+    # 重试时横向修正放大系数：加大，让重退在"远离标签"时把横向真正归零
+    retreat_lateral_factor: 2.0
     # 低速僵持判定线速度阈值（米/秒）：横向误差仍大且线速度低于该值会触发重试
     retry_stall_linear_speed_threshold: 0.01
     # 连续僵持周期数（控制周期个数）达到后触发下一次前进重试
     retry_stall_cycles: 8
-    # 第一段预对齐安全余量（米）：距离目标超过该余量时优先纠偏
-    pre_align_distance_margin: 0.6
-    # 第一段预对齐线速度上限（米/秒）
-    pre_align_linear_max_speed: 0.04
-    # 第二段最终靠近窗口（米）：进入该窗口后启用更低线速度上限
+    # 第二阶段最终靠近窗口（米）：进入该窗口后启用更低线速度上限
     final_approach_distance_window: 0.6
-    # 第二段最终靠近线速度上限（米/秒）
+    # 第二阶段最终靠近线速度上限（米/秒）
     final_approach_linear_max_speed: 0.05
-    # 第一段横向误差转向增益（越大横向纠偏越积极）
-    pre_align_lateral_gain: 2.0
-    # 第二段横向误差转向增益（用于加强最终靠近时的平移纠偏）
-    final_approach_lateral_gain: 2.0
-    # 横向纠偏最小前视距离（米）：越小越敏感，避免第二段纠偏偏弱
-    lateral_lookahead_min: 0.05
-    # 横向误差直接补偿系数（米->角速度），用于加强平移纠偏响应
-    lateral_direct_k: 1.2
-    # 第一段横向直接补偿缩放
-    pre_align_lateral_direct_scale: 0.8
-    # 第二段横向直接补偿缩放（建议高于第一段）
-    final_approach_lateral_direct_scale: 1.8
-    # 横向直接补偿角速度限幅（弧度/秒）
-    lateral_direct_max: 0.12
+    # 第三阶段 ANGULAR_ALIGNING 横向项增益 klat（w = -klat*bearing + kh*yaw）
+    lateral_direct_k: 1.0
 
     # 机器人基坐标系（TF frame）
     base_frame: "base_link"

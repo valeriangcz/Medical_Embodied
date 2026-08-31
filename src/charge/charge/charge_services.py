@@ -12,7 +12,7 @@ from ament_index_python.packages import get_package_share_directory
 from interfaces.action import Docking
 from interfaces.srv import ChargeUntil, Dock as DockSrv
 from rclpy.action import ActionServer, CancelResponse, GoalResponse
-from rclpy.callback_groups import ReentrantCallbackGroup
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup, ReentrantCallbackGroup
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from std_msgs.msg import String
@@ -26,7 +26,13 @@ _DOCKING_STATE_QOS = QoSProfile(
 
 class ChargeServices(Node):
     TERMINAL_STATES = {"DOCKING_COMPLETED", "DOCKING_FAILED", "ABORTED"}
-    ACTIVE_STATES = {"SEARCHING_TAG", "ALIGNING", "APPROACHING", "RETRYING"}
+    ACTIVE_STATES = {
+        "SEARCHING_TAG",
+        "LATERAL_ALIGNING",
+        "PID_APPROACHING",
+        "ANGULAR_ALIGNING",
+        "RETRYING",
+    }
 
     def __init__(self):
         super().__init__("charge_services")
@@ -81,7 +87,14 @@ class ChargeServices(Node):
         self.create_subscription(
             String, "/docking/state", self._state_callback, _DOCKING_STATE_QOS
         )
-        self.create_service(DockSrv, "dock", self.handle_dock)
+        # handle_dock blocks in _run_docking_start_and_wait (cooldown + apriltag
+        # startup + state wait). It must NOT share the default callback group with
+        # the /docking/state subscription, otherwise _state_callback cannot run
+        # while the service handler is blocked and the state wait always times out.
+        self._dock_service_cb_group = MutuallyExclusiveCallbackGroup()
+        self.create_service(
+            DockSrv, "dock", self.handle_dock, callback_group=self._dock_service_cb_group
+        )
         self.create_service(ChargeUntil, "charge_until", self.handle_charge)
         self._dock_action_server = ActionServer(
             self,
@@ -105,9 +118,13 @@ class ChargeServices(Node):
             return 1.0
         if state == "SEARCHING_TAG":
             return 0.1
-        if state == "ALIGNING":
+        if state == "LATERAL_ALIGNING":
             return 0.3
-        if state in {"APPROACHING", "RETRYING"}:
+        if state == "PID_APPROACHING":
+            return 0.6
+        if state == "ANGULAR_ALIGNING":
+            return 0.85
+        if state == "RETRYING":
             return 0.6
         return 0.0
 
@@ -300,7 +317,13 @@ class ChargeServices(Node):
         self._publish_control("start")
         self._publish_dock_action_feedback()
         accepted = self._wait_for_state(
-            {"SEARCHING_TAG", "ALIGNING", "APPROACHING", "RETRYING"},
+            {
+                "SEARCHING_TAG",
+                "LATERAL_ALIGNING",
+                "PID_APPROACHING",
+                "ANGULAR_ALIGNING",
+                "RETRYING",
+            },
             self.state_timeout_sec,
         )
         if not accepted:

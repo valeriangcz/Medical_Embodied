@@ -16,8 +16,9 @@ from tf2_ros import Buffer, TransformException, TransformListener
 class QrDockingNode(Node):
     IDLE = "IDLE"
     SEARCHING = "SEARCHING_TAG"
-    ALIGNING = "ALIGNING"
-    APPROACHING = "APPROACHING"
+    LATERAL_ALIGNING = "LATERAL_ALIGNING"
+    PID_APPROACHING = "PID_APPROACHING"
+    ANGULAR_ALIGNING = "ANGULAR_ALIGNING"
     RETRYING = "RETRYING"
     COMPLETED = "DOCKING_COMPLETED"
     FAILED = "DOCKING_FAILED"
@@ -41,6 +42,10 @@ class QrDockingNode(Node):
         self.current_lateral_error = float("nan")
         self.current_angular_error = float("nan")
         self.last_docking_end_monotonic = None
+        # Current docking stage (LATERAL_ALIGNING / PID_APPROACHING / ANGULAR_ALIGNING).
+        # Initialized to None so the first valid tag frame picks the stage from the
+        # measured distance to the tag.
+        self.phase = None
 
         self.target_distance = self._declare_float("target_distance", 0.315)
         self.horizontal_tolerance = self._declare_float("horizontal_tolerance", 0.03)
@@ -48,6 +53,20 @@ class QrDockingNode(Node):
         self.linear_max_speed = self._declare_float("linear_max_speed", 0.1)
         self.angular_max_speed = self._declare_float("angular_max_speed", 0.3)
         self.search_angular_speed = self._declare_float("search_angular_speed", 0.25)
+        # -------- Three-stage docking geometry --------
+        # Stage 1 (LATERAL_ALIGNING): complete the lateral (y) adjustment at this
+        #   distance in front of the tag, then hold there until y is within tolerance.
+        self.lateral_align_distance = self._declare_float("lateral_align_distance", 1.0)
+        # Stage 2 -> Stage 3 boundary: the PID approach stops at this distance in front
+        # of the tag and the heading (yaw) alignment takes over.
+        self.angular_align_distance = self._declare_float("angular_align_distance", 0.5)
+        # Linear speed caps per stage (m/s).
+        self.lateral_align_linear_max_speed = self._declare_float(
+            "lateral_align_linear_max_speed", 0.06
+        )
+        self.angular_align_linear_max_speed = self._declare_float(
+            "angular_align_linear_max_speed", 0.03
+        )
         self.max_docking_duration_sec = self._declare_float("max_docking_duration_sec", 120.0)
         self.tag_timeout_sec = self._declare_float("tag_timeout_sec", 1.0)
         self.max_tag_lost_sec = self._declare_float("max_tag_lost_sec", 10.0)
@@ -63,16 +82,17 @@ class QrDockingNode(Node):
         self.linear_kp = self._declare_float("linear_kp", 0.5)
         self.linear_ki = self._declare_float("linear_ki", 0.0)
         self.linear_kd = self._declare_float("linear_kd", 0.1)
+        # Heading-term gain for stage 3 (w = -klat * bearing + kh * yaw).
         self.angular_kp = self._declare_float("angular_kp", 1.0)
-        self.angular_ki = self._declare_float("angular_ki", 0.0)
-        self.angular_kd = self._declare_float("angular_kd", 0.1)
 
         self.linear_error_sum_max = self._declare_float("linear_error_sum_max", 1.0)
-        self.angular_error_sum_max = self._declare_float("angular_error_sum_max", 1.0)
         self.linear_error_sum = 0.0
-        self.angular_error_sum = 0.0
         self.last_linear_error = 0.0
-        self.last_angular_error = 0.0
+        # Low-pass filter on the measured yaw error to reject apriltag orientation jitter.
+        self.angular_error_alpha = self._declare_float("angular_error_alpha", 0.4)
+        self.angular_error_filtered = 0.0
+        # Pure-pursuit look-ahead distance for the reverse lateral arc (stages 1/2).
+        self.pp_lookahead = self._declare_float("pp_lookahead", 0.5)
 
         self.retry_threshold = self._declare_float("retry_threshold", 0.5)
         self.retreat_duration = Duration(seconds=self._declare_float("retreat_duration_sec", 3.0))
@@ -83,20 +103,10 @@ class QrDockingNode(Node):
             "retry_stall_linear_speed_threshold", 0.01
         )
         self.retry_stall_cycles = self._declare_int("retry_stall_cycles", 8)
-        self.pre_align_distance_margin = self._declare_float("pre_align_distance_margin", 0.2)
-        self.pre_align_linear_max_speed = self._declare_float("pre_align_linear_max_speed", 0.04)
         self.final_approach_distance_window = self._declare_float("final_approach_distance_window", 0.2)
         self.final_approach_linear_max_speed = self._declare_float("final_approach_linear_max_speed", 0.05)
-        self.pre_align_lateral_gain = self._declare_float("pre_align_lateral_gain", 1.0)
-        self.final_approach_lateral_gain = self._declare_float("final_approach_lateral_gain", 2.0)
-        self.lateral_lookahead_min = self._declare_float("lateral_lookahead_min", 0.05)
+        # Lateral-term gain for stage 3 (w = -klat * bearing + kh * yaw).
         self.lateral_direct_k = self._declare_float("lateral_direct_k", 1.2)
-        self.pre_align_lateral_direct_scale = self._declare_float("pre_align_lateral_direct_scale", 0.8)
-        self.final_approach_lateral_direct_scale = self._declare_float(
-            "final_approach_lateral_direct_scale", 1.8
-        )
-        self.lateral_direct_max = self._declare_float("lateral_direct_max", 0.12)
-        self.was_pre_align_active = False
         self.stall_retry_counter = 0
 
         self.base_frame = self._declare_str("base_frame", "base_link")
@@ -238,7 +248,7 @@ class QrDockingNode(Node):
         self.is_running = True
         self.is_docking = True
         self.is_retreating = False
-        self.was_pre_align_active = False
+        self.phase = None
         self.retry_count = 0
         self.completed_stable_count = 0
         self.stall_retry_counter = 0
@@ -246,14 +256,13 @@ class QrDockingNode(Node):
         self.start_time = now
         self.last_valid_error_time = now
         self.current_state = self.SEARCHING
+        self.angular_error_filtered = 0.0
         self.reset_pid_errors()
         self.publish_state()
 
     def reset_pid_errors(self) -> None:
         self.linear_error_sum = 0.0
-        self.angular_error_sum = 0.0
         self.last_linear_error = 0.0
-        self.last_angular_error = 0.0
 
     def stop_docking(self, state: str = IDLE) -> None:
         self.is_running = False
@@ -273,11 +282,9 @@ class QrDockingNode(Node):
 
     def start_retreating(self) -> None:
         self.is_retreating = True
-        self.was_pre_align_active = False
         self.retreat_start_time = self.get_clock().now()
         self.retry_count += 1
         self.linear_error_sum = 0.0
-        self.angular_error_sum = 0.0
         self.stall_retry_counter = 0
         self.current_state = self.RETRYING
         self.get_logger().warn(f"Start retry maneuver ({self.retry_count}/{self.max_retry_count})")
@@ -333,6 +340,140 @@ class QrDockingNode(Node):
             )
         )
 
+    def _initial_phase(self, range_to_tag: float, lateral_aligned: bool) -> str:
+        """Pick the starting stage from the current distance to the tag.
+
+        Lateral alignment is always the first priority whenever it is still off, so a
+        robot that starts already close to the tag does not skip the lateral fix.
+        """
+        if not lateral_aligned:
+            return self.LATERAL_ALIGNING
+        if range_to_tag > self.lateral_align_distance:
+            return self.LATERAL_ALIGNING
+        if range_to_tag > self.angular_align_distance:
+            return self.PID_APPROACHING
+        return self.ANGULAR_ALIGNING
+
+    def _linear_pid(self, linear_error: float) -> float:
+        """PID on the distance error -> linear velocity."""
+        self.linear_error_sum += linear_error
+        self.linear_error_sum = max(
+            -self.linear_error_sum_max, min(self.linear_error_sum_max, self.linear_error_sum)
+        )
+        linear_p = self.linear_kp * linear_error
+        linear_i = self.linear_ki * self.linear_error_sum
+        linear_d = self.linear_kd * (linear_error - self.last_linear_error)
+        linear_velocity = linear_p + linear_i + linear_d
+        # Forward adjustment uses proportional-only control: avoid I/D overshoot when
+        # the robot has to nudge forward after slightly overshooting the target.
+        if linear_velocity > 0.0:
+            linear_velocity = linear_p
+        self.last_linear_error = linear_error
+        return linear_velocity
+
+    def _reset_linear_pid(self) -> None:
+        self.linear_error_sum = 0.0
+        self.last_linear_error = 0.0
+
+    def _pure_pursuit_steer(
+        self,
+        linear_velocity: float,
+        lateral_error: float,
+        current_distance: float,
+    ) -> float:
+        """Reverse pure-pursuit steering.
+
+        Arc the robot toward the point directly in front of the tag so the lateral
+        offset and the heading converge together along the arc. In reverse docking the
+        tag sits behind the robot (current_distance < 0), so the look direction is
+        ``-current_distance``. This replaces a direct ``k * lateral`` + yaw term, which
+        fight each other in reverse (they demand opposite steering signs for the same
+        pose) and stall the robot.
+        """
+        if abs(linear_velocity) < 1e-6:
+            return 0.0
+        bearing = math.atan2(lateral_error, -current_distance)
+        return -(2.0 * abs(linear_velocity) * math.sin(bearing) / self.pp_lookahead)
+
+    def _control_lateral_align(
+        self,
+        current_distance: float,
+        lateral_error: float,
+        range_to_tag: float,
+        target_sign: float,
+    ):
+        """Stage 1: arc backward toward the 1 m standoff while nulling the lateral offset."""
+        if range_to_tag > self.lateral_align_distance:
+            # Still far: drive backward toward the 1 m standoff.
+            linear_target = target_sign * self.lateral_align_distance
+            linear_velocity = self._linear_pid(current_distance - linear_target)
+            linear_velocity = max(
+                -self.lateral_align_linear_max_speed,
+                min(self.lateral_align_linear_max_speed, linear_velocity),
+            )
+            # Near the standoff the PID output can drop below the chassis deadband and
+            # leave the robot parked just short of lateral_align_distance, so it can
+            # never cross into the next stage. Enforce a minimum approach speed.
+            min_approach = self.lateral_align_linear_max_speed * 0.5
+            if abs(linear_velocity) < min_approach:
+                linear_velocity = target_sign * min_approach
+        else:
+            # At/past the standoff but lateral is still off: keep creeping backward so
+            # the pure-pursuit arc stays active (a stopped robot cannot steer laterally,
+            # and steering in place couples yaw into the lateral error).
+            linear_velocity = target_sign * self.lateral_align_linear_max_speed * 0.5
+
+        angular_velocity = self._pure_pursuit_steer(linear_velocity, lateral_error, current_distance)
+        angular_velocity = max(-self.angular_max_speed, min(self.angular_max_speed, angular_velocity))
+        return linear_velocity, angular_velocity
+
+    def _control_pid_approach(
+        self,
+        distance_error: float,
+        lateral_error: float,
+        current_distance: float,
+        distance_to_target: float,
+    ):
+        """Stage 2: PID on distance; pure-pursuit arc keeps the lateral aligned."""
+        linear_velocity = self._linear_pid(distance_error)
+        linear_velocity = max(-self.linear_max_speed, min(self.linear_max_speed, linear_velocity))
+        if distance_to_target <= self.final_approach_distance_window:
+            linear_velocity = max(
+                -self.final_approach_linear_max_speed,
+                min(self.final_approach_linear_max_speed, linear_velocity),
+            )
+
+        angular_velocity = self._pure_pursuit_steer(linear_velocity, lateral_error, current_distance)
+        angular_velocity = max(-self.angular_max_speed, min(self.angular_max_speed, angular_velocity))
+        return linear_velocity, angular_velocity
+
+    def _control_angular_align(
+        self,
+        distance_error: float,
+        lateral_error: float,
+        current_distance: float,
+    ):
+        """Stage 3: coordinated lateral+heading correction near the charging position.
+
+        Reverse docking cannot settle lateral (y) and heading (yaw) independently with
+        a pure heading term: steering couples them (dy = -x * dyaw), and a stopped robot
+        keeps ``y + x * yaw`` constant. The robot therefore keeps reversing slowly and
+        steers with a direct lateral term plus a mild heading term
+        (``w = -k_lat * bearing + k_yaw * yaw``), which settles both into tolerance.
+        """
+        # Tiny linear correction to close the last few cm; must stay non-zero so the
+        # reverse motion keeps decoupling y and yaw.
+        linear_velocity = self._linear_pid(distance_error)
+        linear_velocity = max(
+            -self.angular_align_linear_max_speed,
+            min(self.angular_align_linear_max_speed, linear_velocity),
+        )
+
+        bearing = math.atan2(lateral_error, -current_distance)
+        angular_velocity = -self.lateral_direct_k * bearing + self.angular_kp * self.angular_error_filtered
+        angular_velocity = max(-self.angular_max_speed, min(self.angular_max_speed, angular_velocity))
+        return linear_velocity, angular_velocity
+
     def control_loop(self) -> None:
         if not self.is_docking:
             return
@@ -345,7 +486,6 @@ class QrDockingNode(Node):
 
         transform = self.get_tag_transform()
         if transform is None or not self.tag_visible:
-            self.was_pre_align_active = False
             self.current_state = self.SEARCHING
             self.publish_current_error(float("nan"), float("nan"), float("nan"))
             self.log_status_line(float("nan"), float("nan"), float("nan"), float("nan"))
@@ -368,40 +508,70 @@ class QrDockingNode(Node):
 
         q = transform.transform.rotation
         angular_error = self._yaw_from_quaternion(q.x, q.y, q.z, q.w)
+        # Low-pass filter the measured yaw error to reject apriltag orientation jitter
+        # before feeding it to the controller (raw value is kept for logging / done test).
+        self.angular_error_filtered = (
+            self.angular_error_alpha * angular_error
+            + (1.0 - self.angular_error_alpha) * self.angular_error_filtered
+        )
         self.last_valid_error_time = now
         distance_error = current_distance - self.target_distance
         self.publish_current_error(distance_error, lateral_error, angular_error)
+
+        target_sign = self._target_sign(self.target_distance, current_distance)
+        range_to_tag = abs(current_distance)
+        distance_to_target = target_sign * distance_error
+        lateral_aligned = abs(lateral_error) <= self.horizontal_tolerance
 
         if self.is_retreating:
             self.log_status_line(current_distance, lateral_error, angular_error, distance_error)
             if (self.get_clock().now() - self.retreat_start_time) > self.retreat_duration:
                 self.is_retreating = False
+                # Re-evaluate the stage from the new position after the retreat.
+                self.phase = None
+                self.reset_pid_errors()
                 self.get_logger().info("Forward retry finished, resume docking")
                 return
 
-            # Retreat correction only targets lateral offset.
-            # Because retreat moves opposite to docking direction, lateral sign follows retreat direction.
-            target_sign = self._target_sign(self.target_distance, current_distance)
-            retreat_direction_sign = -target_sign
-            lateral_correction = retreat_direction_sign * lateral_error * self.retreat_lateral_factor
+            # Retreat correction targets both lateral offset and heading, so a retry
+            # does not leave the robot yawed worse than before. The lateral->yaw sign
+            # depends only on which side of the robot the tag is on (sign of x /
+            # target_sign), NOT on the direction of travel; retreat does not change it.
+            lateral_correction = target_sign * lateral_error * self.retreat_lateral_factor
             lateral_correction = max(
                 -self.angular_max_speed / 2.0, min(self.angular_max_speed / 2.0, lateral_correction)
             )
+            # Same sign as the normal-approach yaw term (angular_kp * angular_error).
+            yaw_correction = self.retreat_angular_factor * self.angular_error_filtered
 
             cmd = Twist()
-            # Retreat direction should be opposite to docking direction, compatible with +/- target_distance.
+            # Retreat direction is opposite to the docking direction, compatible with +/- target_distance.
             cmd.linear.x = -target_sign * self.retreat_speed
-            cmd.angular.z = lateral_correction
+            cmd.angular.z = max(
+                -self.angular_max_speed,
+                min(self.angular_max_speed, lateral_correction + yaw_correction),
+            )
             self.cmd_vel_pub.publish(cmd)
             return
 
-        if abs(lateral_error) > self.horizontal_tolerance or abs(angular_error) > self.angular_tolerance:
-            self.current_state = self.ALIGNING
-        else:
-            self.current_state = self.APPROACHING
+        # -------- Stage selection (monotonic: lateral -> approach -> angular) --------
+        if self.phase is None:
+            self.phase = self._initial_phase(range_to_tag, lateral_aligned)
 
+        if self.phase == self.LATERAL_ALIGNING:
+            # Leave the lateral stage only once the robot is at the standoff AND the
+            # lateral offset is already inside tolerance.
+            if range_to_tag <= self.lateral_align_distance and lateral_aligned:
+                self.phase = self.PID_APPROACHING
+                self.reset_pid_errors()
+        elif self.phase == self.PID_APPROACHING:
+            if range_to_tag <= self.angular_align_distance:
+                self.phase = self.ANGULAR_ALIGNING
+                self.reset_pid_errors()
+
+        # -------- Retry when too close to fix the lateral offset --------
         if (
-            abs(current_distance) < self.retry_threshold
+            range_to_tag < self.retry_threshold
             and abs(lateral_error) > self.horizontal_tolerance
             and not self.is_retreating
         ):
@@ -412,89 +582,30 @@ class QrDockingNode(Node):
             self.log_status_line(current_distance, lateral_error, angular_error, distance_error)
             return
 
-        target_sign = self._target_sign(self.target_distance, current_distance)
-        distance_to_target = target_sign * distance_error
-        pre_align_active = (
-            distance_to_target > self.pre_align_distance_margin
-            and (abs(lateral_error) > self.horizontal_tolerance or abs(angular_error) > self.angular_tolerance)
-        )
-        if pre_align_active:
-            self.current_state = self.ALIGNING
-            # Keep a safety margin first, then enter final docking approach.
-            linear_error = distance_error - target_sign * self.pre_align_distance_margin
-        else:
-            linear_error = distance_error
-            if self.was_pre_align_active:
-                # Avoid velocity jump when switching from pre-align to final approach.
-                self.reset_pid_errors()
-        self.was_pre_align_active = pre_align_active
-
-        self.linear_error_sum += linear_error
-        self.linear_error_sum = max(-self.linear_error_sum_max, min(self.linear_error_sum_max, self.linear_error_sum))
-        linear_p = self.linear_kp * linear_error
-        linear_i = self.linear_ki * self.linear_error_sum
-        linear_d = self.linear_kd * (linear_error - self.last_linear_error)
-        linear_velocity = linear_p + linear_i + linear_d
-        # Forward adjustment uses proportional-only control.
-        forward_adjust = linear_velocity > 0.0
-        if forward_adjust:
-            linear_velocity = linear_p
-        self.last_linear_error = linear_error
-
-        if pre_align_active:
-            lateral_heading_error = math.atan2(lateral_error, max(abs(current_distance), 1e-6))
-            lateral_gain = self.pre_align_lateral_gain
-        else:
-            lateral_heading_error = math.atan2(
-                lateral_error, max(abs(distance_to_target), self.lateral_lookahead_min)
+        # -------- Per-stage control --------
+        if self.phase == self.LATERAL_ALIGNING:
+            self.current_state = self.LATERAL_ALIGNING
+            linear_velocity, angular_velocity = self._control_lateral_align(
+                current_distance, lateral_error, range_to_tag, target_sign
             )
-            lateral_gain = self.final_approach_lateral_gain
-        # Lateral correction direction must follow docking motion direction.
-        # For reverse docking (negative target_sign), lateral->yaw mapping should be inverted.
-        directional_lateral_error = target_sign * lateral_heading_error
-        effective_angular_error = angular_error + lateral_gain * directional_lateral_error
-        self.angular_error_sum += effective_angular_error
-        self.angular_error_sum = max(
-            -self.angular_error_sum_max, min(self.angular_error_sum_max, self.angular_error_sum)
-        )
-        angular_p = self.angular_kp * effective_angular_error
-        angular_i = self.angular_ki * self.angular_error_sum
-        angular_d = self.angular_kd * (effective_angular_error - self.last_angular_error)
-        if forward_adjust:
-            angular_velocity = angular_p
-        else:
-            angular_velocity = angular_p + angular_i + angular_d
-        self.last_angular_error = effective_angular_error
-
-        if pre_align_active:
-            lateral_direct_scale = self.pre_align_lateral_direct_scale
-        else:
-            lateral_direct_scale = self.final_approach_lateral_direct_scale
-        lateral_direct_correction = (
-            self.lateral_direct_k * lateral_direct_scale * target_sign * lateral_error
-        )
-        lateral_direct_correction = max(
-            -self.lateral_direct_max, min(self.lateral_direct_max, lateral_direct_correction)
-        )
-        angular_velocity += lateral_direct_correction
-
-        linear_velocity = max(-self.linear_max_speed, min(self.linear_max_speed, linear_velocity))
-        angular_velocity = max(-self.angular_max_speed, min(self.angular_max_speed, angular_velocity))
-        if pre_align_active:
-            linear_velocity = max(
-                -self.pre_align_linear_max_speed,
-                min(self.pre_align_linear_max_speed, linear_velocity),
+        elif self.phase == self.PID_APPROACHING:
+            self.current_state = self.PID_APPROACHING
+            linear_velocity, angular_velocity = self._control_pid_approach(
+                distance_error, lateral_error, current_distance, distance_to_target
             )
-        elif distance_to_target <= self.final_approach_distance_window:
-            linear_velocity = max(
-                -self.final_approach_linear_max_speed,
-                min(self.final_approach_linear_max_speed, linear_velocity),
+        else:  # ANGULAR_ALIGNING
+            self.current_state = self.ANGULAR_ALIGNING
+            linear_velocity, angular_velocity = self._control_angular_align(
+                distance_error, lateral_error, current_distance
             )
 
         # If lateral error stays large while linear speed stalls near zero,
         # proactively trigger another retry maneuver instead of idling in place.
+        # Only when already close to the tag: holding at the 1 m standoff is an
+        # intentional part of stage 1 and must not trigger a retreat.
         stalled_with_lateral_error = (
-            abs(lateral_error) > self.horizontal_tolerance
+            range_to_tag < self.retry_threshold
+            and abs(lateral_error) > self.horizontal_tolerance
             and abs(linear_velocity) < self.retry_stall_linear_speed_threshold
             and not self.is_retreating
         )
