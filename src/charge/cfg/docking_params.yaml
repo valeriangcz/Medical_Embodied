@@ -1,12 +1,19 @@
 qr_docking_node:
   ros__parameters:
     # 目标停靠距离（米）：机器人与充电桩标签的期望最终距离
-    target_distance: -0.455
-    # 横向误差容忍（米）：|y 方向偏差| 小于该值视为对齐
-    # 放宽到 0.05：倒车对接的横向-航向耦合使横向收敛到~4cm 就接近极限，
-    # 0.03 过紧导致判定差一点进不了; 0.05 可让到位判定稳定通过。
+    target_distance: -0.398 #-0.419: 实测接触后再后退3cm（-0.419→-0.389，值越大越贴近桩）
+    # 标定目标（米/弧度）：机器人正确贴合充电桩时，tag 在 base_link 下的 y 偏移和 yaw。
+    # 标定方法：手柄把车精确对到充电触点上，读
+    #   ros2 run tf2_ros tf2_echo base_link1 dock_frame
+    # 把 translation.y 填到 target_lateral、yaw 填到 target_yaw。
+    # 填 0 等价于假设 tag 贴在触点正中且完全垂直；tag/相机安装有固定偏差时必须标定。
+    target_lateral: 0.002 #0.0
+    target_yaw: -0.069 #0.0
+    # 横向误差容忍（米）：dock 航线横向偏差（cross-track，dock 系下机器人偏离
+    # 对接直线的距离）小于该值视为对齐。完成判定、重试触发都用它。
     horizontal_tolerance: 0.05
     # 角度误差容忍（弧度）：|偏航误差| 小于该值视为朝向对齐
+    # 注意：级联控制律收敛后残差会明显变小，实车验证后再逐步收紧此值（如 0.08）。
     angular_tolerance: 0.15
     # 线速度上限（米/秒）：前进/后退控制最大速度
     linear_max_speed: 0.1
@@ -14,6 +21,25 @@ qr_docking_node:
     angular_max_speed: 0.2
     # 丢失标签后的搜索角速度（弧度/秒）
     search_angular_speed: 0.25
+    # 搜索/回中增益：tag 偏离相机光轴时的比例回转系数
+    search_gain: 1.5
+    # 盲搜（从未见过 tag）每隔该秒数反向旋转（秒）：定速 0.25 rad/s 转一整圈约 25s，
+    # 该值略大于一圈，保证单个方向扫一整圈必定覆盖全周，不会中途换向漏扫。
+    search_flip_period_sec: 26.0
+    # tag 方位角保护（弧度）：tag 偏离相机光轴超过该值时，转向优先把 tag 拉回画面中心，
+    # 防止对齐转弯把 tag 扫出视野（相机朝后装、FOV 有限）。
+    # 0.6 ≈ 相对光轴 34°，适配 ~70°+ 水平 FOV；镜头更窄请调小。
+    fov_guard_rad: 0.6
+
+    # ================= 远场瞄准（侧向/斜向起步关键） =================
+    # 倒车相机只能看到车尾方向；从侧面起步时若直接"摆正与桩平行"，尾巴必然甩离 tag 导致丢靶。因此远场改为瞄准 dock 线上的 carrot 点倒退上线：
+    #   carrot 在 tag 前方 clamp(距离 - carrot_margin, |target_distance|, carrot_max_offset) 处
+    #   航向环把"车尾指向 carrot"的方位角驱动到 0，倒车即沿线滑向充电位。
+    # 0.5m 内（angular_align_distance）切回 cross-track 级联律做最终修整。
+    carrot_max_offset: 1.2
+    carrot_margin: 0.25
+    # carrot 方位角超过该值（弧度）时先原地瞄准、再倒车
+    aim_drive_threshold: 0.35
 
     # ================= 三段式对接几何 =================
     # 第一阶段 LATERAL_ALIGNING：在 tag 前 lateral_align_distance 米处完成横向(y)调整，
@@ -25,7 +51,8 @@ qr_docking_node:
     # |target_distance|，用于在最后几厘米完成航向对齐）。
     angular_align_distance: 0.5
     # 第一阶段横向调整时的线速度上限（米/秒）：向 1 米位置靠近要慢，留足横向纠偏时间。
-    lateral_align_linear_max_speed: 0.06
+    # 横向偏差收敛速率 ∝ 倒车速度，太慢则第一阶段耗时过长。
+    lateral_align_linear_max_speed: 0.10
     # 第三阶段航向对齐时的线速度上限（米/秒）：只允许极小的距离补偿，避免带歪航向。
     angular_align_linear_max_speed: 0.03
 
@@ -34,12 +61,20 @@ qr_docking_node:
     linear_kp: 0.8
     linear_ki: 0.0
     linear_kd: 0.0
-    # 角速度控制（第三阶段 ANGULAR_ALIGNING）
-    # 航向项增益 kh（w = -klat*bearing + kh*yaw）。过大时航向项饱和、把横向带飞；
-    # 仿真验证 0.8 可让横向与航向同时进容差。
+    # 角速度控制（航向环，所有阶段共用）
+    # 级联控制律：航向环跟踪由 dock 线横向偏差生成的参考航向
+    #   psi_ref = -cross_track_k * cross_track （限幅 ±heading_offset_max）
+    #   w = angular_kp * (yaw_err - psi_ref)
+    # 倒车时带一点航向偏角让横向偏差"流"掉，横向收敛后参考归零、航向回正，
+    # 距离/横向/航向三个误差同时收敛（旧的并联横向项+航向项存在结构零点，
+    # 只能收敛到 y≈k·ψ 的一条残差线上，这正是以前停不准的根因）。
     angular_kp: 0.8
-    # 倒车弧线（第一阶段横向、第二阶段抵近）的前视距离：沿弧线把横向归零并自然对正航向。
-    pp_lookahead: 1.0
+    # 横向偏差 -> 参考航向增益：越大横向收敛越快（倒车速度不变时）
+    cross_track_k: 1.5
+    # 参考航向限幅（弧度）：防止为纠横向打出过大的航向偏角。
+    # 0.5 保证近场横向偏差 ≤0.3m 时 tag 仍留在保护锥内（限幅过小会在近距离
+    # 大偏差时与 FOV 保护打架形成乒乓振荡）。
+    heading_offset_max: 0.5
     # 航向测量低通滤波系数（0~1，越大越跟随原始测量）：
     # 抑制 6cm 标签姿态在远距离处的估测抖动，避免控制器追逐噪声。
     angular_error_alpha: 0.4
@@ -48,17 +83,36 @@ qr_docking_node:
     linear_error_sum_max: 1.0
 
     # 单次对接最大时长（秒），超时后退出本次流程
-    max_docking_duration_sec: 120.0
+    # 侧向/盲区起步含重试可能需要 100s+，放宽到 180
+    max_docking_duration_sec: 180.0
     # 标签数据超时（秒）：超过该时间未收到新标签数据视为超时
     tag_timeout_sec: 2.0
-    # 标签连续丢失最大时长（秒）：超过后触发失败/重试逻辑
-    max_tag_lost_sec: 10.0
+    # 标签连续丢失最大时长（秒）：超过后判定失败。放宽到 30s：盲搜转一整圈需 ~25s
+    # （侧向/盲区起步时靠它找回 tag）；已见过 tag 的场景按最后方位回转，几秒即可找回。
+    max_tag_lost_sec: 30.0
     # 对接开始后的 tag 启动宽限时间（秒）：识别节点起步阶段不因无 tag 判失败
     tag_startup_grace_sec: 5.0
     # 最大重试次数：超过后对接任务失败
     max_retry_count: 5
     # 完成判定稳定周期数：连续满足到位条件 N 个控制周期才算成功
     done_stable_cycles: 8
+    # 接触顶住判定：末段横向/航向已对齐、距目标在 contact_settle_window 内、
+    # 且在以 >= contact_push_speed 的速度后退但实测距离连续 contact_stall_cycles
+    # 个周期不动（变化 < contact_motion_eps），说明已物理顶住充电桩、触点压接，
+    # 直接判完成，避免悬挂行程压不到 target_distance 而僵死超时。
+    contact_stall_cycles: 10
+    contact_settle_window: 0.05
+    contact_motion_eps: 0.004
+    contact_push_speed: 0.03
+    # 接触精修：首次物理顶住时，只有横向/航向进入下面更紧的判据才算“好位姿”直接完成；
+    # 若已顶住但位姿偏松（横向 <5cm/航向 <8.6° 但超过下面紧值），先后退摆正再重新对接
+    # （每次消耗一次 retry，最多 max_retry_count 次，用完仍偏松则兜底接受，不会硬失败）。
+    contact_refine_cross_track: 0.03   # 米，好位姿横向 ≤3cm
+    contact_refine_yaw: 0.08           # 弧度≈4.6°，好位姿航向 ≤4.6°
+    # 精修退出：退到 refine_retreat_target_distance 处（默认 0.6m），
+    # 边退边摆正航向，然后完整重新走三段式对接。
+    refine_retreat_target_distance: 0.6
+    refine_retreat_speed: 0.08
     # 成功/退出前额外发布 0 速度的次数，确保底盘稳定停车
     stop_publish_count: 5
 
@@ -68,20 +122,17 @@ qr_docking_node:
     retreat_duration_sec: 5.0
     # 重试后退速度（米/秒）
     retreat_speed: 0.1
-    # 重试时角速度放大系数：压到极小，让重退专心纠横向、不再用航向项抵消横向修正
-    retreat_angular_factor: 0.15
-    # 重试时横向修正放大系数：加大，让重退在"远离标签"时把横向真正归零
-    retreat_lateral_factor: 2.0
+    # 重试机动的角速度已改为与第三阶段相同的协调控制律（横向项+航向项），
+    # 不再使用独立的放大系数（旧系数会把横向误差换成更大的航向误差）。
     # 低速僵持判定线速度阈值（米/秒）：横向误差仍大且线速度低于该值会触发重试
     retry_stall_linear_speed_threshold: 0.01
     # 连续僵持周期数（控制周期个数）达到后触发下一次前进重试
     retry_stall_cycles: 8
     # 第二阶段最终靠近窗口（米）：进入该窗口后启用更低线速度上限
     final_approach_distance_window: 0.6
-    # 第二阶段最终靠近线速度上限（米/秒）
-    final_approach_linear_max_speed: 0.05
-    # 第三阶段 ANGULAR_ALIGNING 横向项增益 klat（w = -klat*bearing + kh*yaw）
-    lateral_direct_k: 1.0
+    # 第二阶段最终靠近线速度上限（米/秒）：横向偏差的收敛速率 ∝ 倒车速度，
+    # 太低则最后一段横向收敛过慢。
+    final_approach_linear_max_speed: 0.07
 
     # 机器人基坐标系（TF frame）
     base_frame: "base_link"
@@ -107,6 +158,7 @@ charge_services:
     # 充电状态查询超时（秒）
     state_timeout_sec: 5.0
     # dock(start=true) 阻塞等待 DOCKING_COMPLETED 的最长时间（秒）
-    docking_completion_timeout_sec: 120.0
+    # 必须与 qr_docking_node 的 max_docking_duration_sec 保持一致
+    docking_completion_timeout_sec: 180.0
     # 两次对接之间的最短间隔（秒）：结束对接后需等待该时间才能再次开始，避免节点未完全退出
     docking_session_cooldown_sec: 5.0
