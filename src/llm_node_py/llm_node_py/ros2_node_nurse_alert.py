@@ -17,6 +17,7 @@ ros2 service call /check_need_call_nurse llm_node_comm/srv/NurseAlert "{question
 
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Optional
@@ -24,6 +25,16 @@ from typing import Optional
 import rclpy
 from openai import OpenAI
 from rclpy.node import Node
+
+# 护士告警拿到的是 ASR 原始文本（早于网关纠错），先做血透语境同音字归一。
+_TYPO_MAP = {
+    "内漏": "内瘘",
+    "内露": "内瘘",
+    "血林": "血磷",
+    "火龙观": "火龙罐",
+    "美洲": "每周",
+}
+_TYPO_RE = re.compile("|".join(re.escape(k) for k in _TYPO_MAP))
 
 
 def _iter_workspace_candidates() -> list[Path]:
@@ -143,6 +154,8 @@ class NurseAlertService(Node):
                     "need_end（bool，是否想结束对话），"
                     "reason（string，解释原因），"
                     "response（string，给患者的回复内容；如果既不需要呼叫护士也不需要结束对话，则为空字符串）。"
+                    "注意：血透患者口语里的“内漏/内露”通常指“内瘘”（血管通路），"
+                    "不要按内出血处理；只有明确描述出血不止、胸闷、意识改变等才呼叫护士。"
                 ),
             },
             {
@@ -237,7 +250,8 @@ class NurseAlertService(Node):
         """
         接收 NurseAlert 请求，返回是否需要呼叫护士，以及是否想结束对话
         """
-        question = request.question
+        question = _TYPO_RE.sub(
+            lambda m: _TYPO_MAP[m.group(0)], request.question or "")
 
         try:
             prompt = [{"role": "user", "content": question}]

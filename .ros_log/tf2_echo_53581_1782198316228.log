@@ -1,2 +1,0 @@
-[INFO] [1782198316.247257865] [tf2_echo]: Waiting for transform rslidar ->  base_link: Invalid frame ID "rslidar" passed to canTransform argument target_frame - frame does not exist
-[INFO] [1782198321.020821027] [rclcpp]: signal_handler(SIGINT/SIGTERM)

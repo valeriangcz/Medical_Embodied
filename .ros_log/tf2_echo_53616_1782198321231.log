@@ -1,2 +1,0 @@
-[INFO] [1782198321.245376761] [tf2_echo]: Waiting for transform map ->  base_link: Invalid frame ID "map" passed to canTransform argument target_frame - frame does not exist
-[INFO] [1782198326.024601999] [rclcpp]: signal_handler(SIGINT/SIGTERM)

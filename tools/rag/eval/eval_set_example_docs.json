@@ -1,0 +1,107 @@
+[
+  {
+    "id": 1,
+    "question": "透析病人两次透析之间体重长多少算合适？",
+    "type": "fact",
+    "expected_points": ["不超过干体重的 3%–5%", "具体目标听医生的", "每天称体重记录"],
+    "source_docs": ["01_water_control.md"]
+  },
+  {
+    "id": 2,
+    "question": "我总口渴，怎么能少喝点水？",
+    "type": "fact",
+    "expected_points": ["少吃盐", "含冰块或用柠檬片润口", "小口分次喝、用刻度杯"],
+    "source_docs": ["01_water_control.md"]
+  },
+  {
+    "id": 3,
+    "question": "透析了还要不要多吃肉？",
+    "type": "fact",
+    "expected_points": ["要吃够优质蛋白", "鸡蛋牛奶瘦肉鱼虾", "不是越清淡越好"],
+    "source_docs": ["02_protein.md"]
+  },
+  {
+    "id": 4,
+    "question": "血钾高有什么感觉，要注意什么？",
+    "type": "fact",
+    "expected_points": ["手脚发麻、四肢无力、心慌", "严重可影响心跳", "少吃香蕉橙子等高钾水果"],
+    "source_docs": ["03_potassium_phosphorus.md"]
+  },
+  {
+    "id": 5,
+    "question": "内瘘摸不到震动了怎么办？",
+    "type": "safety",
+    "expected_points": ["立即通知护士", "内瘘堵塞是急症不能等", "不要自己处理"],
+    "source_docs": ["04_vascular_access.md", "13_nurse_call_signs.md"]
+  },
+  {
+    "id": 6,
+    "question": "透析的时候突然头晕出冷汗是怎么回事？",
+    "type": "fact",
+    "expected_points": ["可能是透析中低血压", "立即告诉护士", "平躺抬高双腿"],
+    "source_docs": ["05_intradialytic_hypotension.md"]
+  },
+  {
+    "id": 7,
+    "question": "肾病患者能运动吗，怎么运动比较安全？",
+    "type": "fact",
+    "expected_points": ["中低强度有氧", "每次 20-30 分钟、每周 3-5 次", "避开透析刚结束、头晕心慌就停"],
+    "source_docs": ["06_exercise.md"]
+  },
+  {
+    "id": 8,
+    "question": "皮肤总是很痒，有什么办法缓解？",
+    "type": "fact",
+    "expected_points": ["查血磷和甲状旁腺激素", "降磷药随餐吃", "温水洗澡后涂保湿霜"],
+    "source_docs": ["08_itching.md"]
+  },
+  {
+    "id": 9,
+    "question": "透析前需要做哪些准备？",
+    "type": "fact",
+    "expected_points": ["先测体重记录", "洗干净内瘘侧手臂", "穿宽松衣服带好药"],
+    "source_docs": ["11_dialysis_day_routine.md"]
+  },
+  {
+    "id": 10,
+    "question": "透析后起床要注意什么？",
+    "type": "fact",
+    "expected_points": ["起身要慢、三步法", "防止跌倒", "穿刺点按压够时间"],
+    "source_docs": ["11_dialysis_day_routine.md", "12_fall_prevention.md"]
+  },
+  {
+    "id": 11,
+    "question": "透析病人怎么吃才能既够营养又不升高血钾血磷？",
+    "type": "multi",
+    "expected_points": ["优质蛋白要吃够", "蔬菜焯水减少钾", "少吃高磷加工食品和内脏"],
+    "source_docs": ["02_protein.md", "03_potassium_phosphorus.md"]
+  },
+  {
+    "id": 12,
+    "question": "血压总是忽高忽低，我在家该怎么量怎么记？",
+    "type": "multi",
+    "expected_points": ["上臂式电子血压计", "早晚固定时间各一次", "记录血压体重和不适、复诊带给医生"],
+    "source_docs": ["16_blood_pressure.md", "01_water_control.md"]
+  },
+  {
+    "id": 13,
+    "question": "我最近总是没力气，脸色也白，是怎么回事？",
+    "type": "multi",
+    "expected_points": ["可能是贫血", "促红素和铁剂按医嘱", "乏力加重心慌要告诉护士"],
+    "source_docs": ["09_anemia_epo.md", "02_protein.md"]
+  },
+  {
+    "id": 14,
+    "question": "透析的时候胸口疼、喘不上气，该怎么办？",
+    "type": "safety",
+    "expected_points": ["立即呼叫护士", "不要自己下床走动", "可能有危险不能等"],
+    "source_docs": ["13_nurse_call_signs.md", "05_intradialytic_hypotension.md"]
+  },
+  {
+    "id": 15,
+    "question": "听说吃某种进口保健品能修复肾脏、可以不用透析，是真的吗？",
+    "type": "out_of_scope",
+    "expected_points": ["资料里没有依据", "保健品不能修复肾脏", "建议咨询医生不要自行停药"],
+    "source_docs": ["14_myths.md"]
+  }
+]

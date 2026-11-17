@@ -13,16 +13,16 @@ TMUX_SESSION="depends_asr_question"
 PYTHON_NODES=(
     # 是否需要呼叫护士
     "../src/llm_node_py/llm_node_py/ros2_node_nurse_alert.py"
-    # 一次性的 tts
-    # "../src/llm_node_py/llm_node_py/ros2_node_tts_oneshot.py"
-    # 大模型-知识库
+    # 唤醒桥：/call_signal -> /start_asr。精简栈没有行为树，没有它真人唤醒后
+    # ASR 永远处于 pause（2026-11-09 排障确认）。真机有行为树时可注释掉本行。
+    "../src/llm_node_py/llm_node_py/ros2_node_wake_bridge.py"
+    # 大模型网关（已并入 router 纠错/分流 + dialog_history + check_end_dialog，
+    # 直接消费 /question_asr，2026-11 架构精简）
     "../src/llm_node_py/llm_node_py/ros2_node_llm_medical.py"
-    # 大模型-联网查找
-    "../src/llm_node_py/llm_node_py/ros2_node_llm_network.py"
-    # 大模型路由器，负责把 question 分发给不同的节点
-    "../src/llm_node_py/llm_node_py/ros2_node_question_router.py"
-    # 管理历史对话
-    "../src/llm_node_py/llm_node_py/ros2_node_dialog_history.py"
+    # 以下四个节点已并入 llm_medical 网关，保留注释便于回退
+    # "../src/llm_node_py/llm_node_py/ros2_node_llm_network.py"
+    # "../src/llm_node_py/llm_node_py/ros2_node_question_router.py"
+    # "../src/llm_node_py/llm_node_py/ros2_node_dialog_history.py"
 )
 
 

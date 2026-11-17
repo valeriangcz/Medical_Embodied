@@ -11,20 +11,16 @@ PYTHON_NODES=(
     # 实时的 tts
     # "../src/llm_node_py/llm_node_py/ros2_node_tts_realtime.py"
     
-    # 实时 TTS + 流式 TTS
-    "../src/llm_node_py/llm_node_py/ros2_node_tts_local.py"
+    # CosyVoice2 TTS（权重 fp16 + 填充词 + 首单元流式 + 内嵌断句器；占用 1.6GB，回退换回下一行）
+    "../src/llm_node_py/llm_node_py/ros2_node_tts_cosyvoice.py"
+    # "../src/llm_node_py/llm_node_py/ros2_node_tts_local.py"
 
-    # 检查用户是否想要把对话结束
-    "../src/llm_node_py/llm_node_py/ros2_node_check_end_session.py"
-
-    # 输入大模型的流式文本，向外输出整个文本
-    "../src/llm_node_py/llm_node_py/ros2_node_stream_text.py"
-    # 管理多个 question
-    "../src/llm_node_py/llm_node_py/ros2_node_question_manager.py"
-    # 把语音输出速度和文本输出速度进行对齐
-    "../src/llm_node_py/llm_node_py/ros2_node_llm_ui_stream_bridge.py"
-    # 给 ui 节点单独开了一个大模型
-    "../src/llm_node_py/llm_node_py/ros2_node_llm_ui.py"
+    # 以下节点已并入 llm_medical 网关 / 随 UI 通道移除（2026-11 架构精简），保留注释便于回退
+    # "../src/llm_node_py/llm_node_py/ros2_node_check_end_session.py"
+    # "../src/llm_node_py/llm_node_py/ros2_node_stream_text.py"
+    # "../src/llm_node_py/llm_node_py/ros2_node_question_manager.py"
+    # "../src/llm_node_py/llm_node_py/ros2_node_llm_ui_stream_bridge.py"
+    # "../src/llm_node_py/llm_node_py/ros2_node_llm_ui.py"
 )
 
 # ================================

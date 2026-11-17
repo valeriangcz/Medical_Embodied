@@ -15,15 +15,55 @@
 
 // 里面是一些负责打印的函数
 #include "llm_node_cpp/conf.h"
+#include "llm_node_cpp/latency_probe.h"
 
 
 #define ASR_STREAM_DEBUG_ENABLE       0
-#define ASR_STREAM_NUM_THREADS        10
+// 10 → 4（2026-11 资源优化）：流式 zipformer 4 线程实时率仍有大余量，
+// 把 CPU 让给导航等算法。流式解码实测单题 <0.6s（7.8s 音频）。
+#define ASR_STREAM_NUM_THREADS        4
 
 
-#define ASR_ENDPOINT_RULE1_THRESHOLD  2.4
-#define ASR_ENDPOINT_RULE2_THRESHOLD  1.2
-#define ASR_ENDPOINT_RULE3_THRESHOLD  20
+#define ASR_ENDPOINT_RULE1_DEFAULT  2.4
+// rule2 维持 1.2s（2026-11 实测结论）：仿真显示降到 0.8s 时，句中 0.4~0.7s 的
+// 自然停顿（解码滞后使有效尾静音长于声学静音）会提前误触发端点、截断问句；
+// 老人语速停顿更长，风险更高。语气词结尾的提速由语义端点承担
+//（ASR_SEMANTIC_RULE=0.55s 文本稳定 + ends_with_sentence_final）。
+// 如需调整，运行时用 ASR_ENDPOINT_RULE2 环境变量覆盖，勿直接降默认值。
+#define ASR_ENDPOINT_RULE2_DEFAULT  1.2
+#define ASR_ENDPOINT_RULE3_DEFAULT  20
+
+// 端点静音阈值支持环境变量覆盖（rule2 决定“说完话→判端点”的固定延迟）：
+//   ASR_ENDPOINT_RULE2=0.8  可把固定延迟从 ~1.0-1.3s 降到 ~0.7-0.9s
+namespace {
+    // 句末语气词（UTF-8）——出现这些字且识别文本稳定，通常表示这句话说完了
+    bool ends_with_sentence_final(const std::string &text) {
+        static const char *kFinals[] = {
+            "\xE4\xBA\x86",  // 了
+            "\xE5\x90\x97",  // 吗
+            "\xE5\x91\xA2",  // 呢
+            "\xE5\x90\xA7",  // 吧
+            "\xE5\x95\x8A",  // 啊
+            "\xE5\x91\x80",  // 呀
+            "\xE5\x98\x9B",  // 嘛
+            "\xE4\xB9\x88",  // 么
+            "\xE7\x9A\x84",  // 的
+            "\xE5\x93\xA6",  // 哦
+            "\xE5\x97\xAF",  // 嗯
+        };
+        if (text.size() < 3) return false;
+        for (const char *f : kFinals) {
+            if (text.compare(text.size() - 3, 3, f) == 0) return true;
+        }
+        return false;
+    }
+
+    float env_float(const char *name, float fallback) {
+        const char *v = std::getenv(name);
+        if (v == nullptr || *v == '\0') return fallback;
+        try { return std::stof(v); } catch (...) { return fallback; }
+    }
+}
 
 // 采购的一体式的麦克风
 // #define MICROPHONE_DEVICE_NAME "UACDemoV1.0: USB Audio"
@@ -58,6 +98,15 @@ namespace {
         //        now_tm->tm_min,
         //        now_tm->tm_sec,
         //        ms.count());
+    }
+
+    // 标点模型路径，允许通过环境变量覆盖（默认与生产部署路径一致）
+    std::string punct_model_path(void) {
+        const char * env = std::getenv("PUNCT_MODEL_PATH");
+        if (env != nullptr && *env != '\0') {
+            return std::string(env);
+        }
+        return std::string("/opt/sherpa-onnx/sherpa-onnx-punct-model/model.onnx");
     }
 };
 
@@ -170,7 +219,7 @@ void AsrStream::selectInputDevice(void)
 AsrStream::AsrStream(const std::string& asrBasePath,
                      const std::string& provider)
     : recognizer_(nullptr), 
-      asr_punc(new AsrPunctuation("/opt/sherpa-onnx/sherpa-onnx-punct-model/model.onnx")),
+      asr_punc(new AsrPunctuation(punct_model_path())),
       stream_(nullptr),
       display_(nullptr),
       audio_stream_(nullptr),
@@ -179,6 +228,15 @@ AsrStream::AsrStream(const std::string& asrBasePath,
 
 
     setInStreamCallbackProcessAudio();
+
+    // 语义端点开关（默认开）：识别文本稳定 0.55s 且以句末语气词结尾时提前判停
+    {
+        const char *denv = std::getenv("ASR_SEMANTIC_ENDPOINT");
+        semantic_endpoint_enabled_ = !(denv != nullptr && std::string(denv) == "0");
+        semantic_silence_s_ = env_float("ASR_SEMANTIC_RULE", 0.55f);
+        sys_log("semantic endpoint: %s (silence=%.2fs)",
+                semantic_endpoint_enabled_ ? "on" : "off", semantic_silence_s_);
+    }
 
     /* init zipformer start >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> */
     // Initialize Zipformer config
@@ -267,9 +325,13 @@ AsrStream::AsrStream(const std::string& asrBasePath,
 
     // 和 endpoint 检测相关的
     recognizer_config_.enable_endpoint   = 1;
-    recognizer_config_.rule1_min_trailing_silence = ASR_ENDPOINT_RULE1_THRESHOLD;
-    recognizer_config_.rule2_min_trailing_silence = ASR_ENDPOINT_RULE2_THRESHOLD;
-    recognizer_config_.rule3_min_utterance_length = ASR_ENDPOINT_RULE3_THRESHOLD;
+    const float rule1 = env_float("ASR_ENDPOINT_RULE1", ASR_ENDPOINT_RULE1_DEFAULT);
+    const float rule2 = env_float("ASR_ENDPOINT_RULE2", ASR_ENDPOINT_RULE2_DEFAULT);
+    const float rule3 = env_float("ASR_ENDPOINT_RULE3", ASR_ENDPOINT_RULE3_DEFAULT);
+    recognizer_config_.rule1_min_trailing_silence = rule1;
+    recognizer_config_.rule2_min_trailing_silence = rule2;
+    recognizer_config_.rule3_min_utterance_length = rule3;
+    sys_log("endpoint thresholds: rule1=%.2fs rule2=%.2fs rule3=%.0fs", rule1, rule2, rule3);
 
     // recognizer_config_.rule1_min_trailing_silence = ;
 
@@ -503,10 +565,37 @@ int AsrStream::ProcessAudio(const float* audioData, int numSamples) {
     // 包含识别出的文本等信息
     const SherpaOnnxOnlineRecognizerResult* result = SherpaOnnxGetOnlineStreamResult(recognizer_, stream_);
 
+    // ---- 语义端点：跟踪“识别文本最后一次变化”的时刻 ----
+    const std::string partial_text =
+        (result != nullptr && result->text != nullptr) ? std::string(result->text) : std::string();
+    const auto now_tp = std::chrono::steady_clock::now();
+    if (partial_text != last_partial_text_) {
+        last_partial_text_ = partial_text;
+        last_partial_change_ = now_tp;
+    }
+    const float stable_silence_s = last_partial_change_.time_since_epoch().count() == 0
+        ? 0.0f
+        : std::chrono::duration<float>(now_tp - last_partial_change_).count();
+
+    bool lib_endpoint = SherpaOnnxOnlineStreamIsEndpoint(recognizer_, stream_);
+    bool semantic_endpoint = false;
+    if (!lib_endpoint && semantic_endpoint_enabled_ &&
+        partial_text.size() >= 12 /* 约 4 个汉字，太短不提前切 */ &&
+        stable_silence_s >= semantic_silence_s_ &&
+        ends_with_sentence_final(partial_text)) {
+        semantic_endpoint = true;
+    }
+
     // 检查是否到达音频流终点：如，检测到静音或语音结束）。
     asrContinueEnum asrC = asrContinue;
-    if (SherpaOnnxOnlineStreamIsEndpoint(recognizer_, stream_)) {
-        sys_log("endpoint detect ......");
+    if (lib_endpoint || semantic_endpoint) {
+        const char *reason = semantic_endpoint ? "semantic" : "lib";
+        sys_log("endpoint detect (%s, silence=%.2fs) ......", reason, stable_silence_s);
+        // 埋点：端点检测时刻 + 实际尾部静音（probe 用它还原“说话结束”时刻）
+        latency_probe::emit(
+            "asr", "endpoint",
+            latency_probe::detail_str("reason", reason) + "," +
+                latency_probe::detail_int("silence_ms", (long long)(stable_silence_s * 1000.0f)));
 
         /* 调用用户设置的回调函数 */
         if (result && strlen(result->text) && asr_callback) {
@@ -525,6 +614,8 @@ int AsrStream::ProcessAudio(const float* audioData, int numSamples) {
 
         // 如果到达终点，调用 SherpaOnnxOnlineStreamReset 重置音频流，以便处理下一段音频
         SherpaOnnxOnlineStreamReset(recognizer_, stream_);
+        last_partial_text_.clear();
+        last_partial_change_ = std::chrono::steady_clock::time_point{};
     }
 
     // 释放识别结果占用的资源

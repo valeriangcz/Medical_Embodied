@@ -1,1 +1,0 @@
-[WARN] [1782199300.173972117] [costmap_probe_once]: New publisher discovered on topic '/scan', offering incompatible QoS. No messages will be received from it. Last incompatible policy: RELIABILITY

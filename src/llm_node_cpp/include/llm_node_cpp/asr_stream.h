@@ -2,6 +2,7 @@
 #define ASR_STREAM_H
 
 #include <string>
+#include <chrono>
 #include <portaudio.h>
 #include <functional>
 
@@ -103,6 +104,12 @@ private:
     int dev_max_channels_; // 硬件设备的通道数
 
     bool skipNextAudioReadFlag = false;
+
+    // 语义端点：识别文本稳定 + 句末语气词时，比库默认 rule2 更早判停
+    std::string last_partial_text_;
+    std::chrono::steady_clock::time_point last_partial_change_{};
+    bool semantic_endpoint_enabled_ = false;
+    float semantic_silence_s_ = 0.55f;
 
     bool is_running_;
 

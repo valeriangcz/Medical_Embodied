@@ -77,6 +77,12 @@ class StopDialogNode(Node):
 
     def stop_hci_dialog_callback(self, msg):
         del msg
+        # 2026-11：默认不再"重拉全栈"——新架构下节点无需重启，盲重拉在
+        # voice_terminal 模式会起出第二套栈（表现为每个回答播两遍）。
+        # 需要旧行为时设 VOICE_ALLOW_RELAUNCH=1。
+        if os.environ.get("VOICE_ALLOW_RELAUNCH", "0") != "1":
+            print("stop_hci_dialog: 已忽略重拉（VOICE_ALLOW_RELAUNCH=0）")
+            return
         # 当前 Python 文件所在目录
         base_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -95,6 +101,9 @@ class StopDialogNode(Node):
 
     def stop_ui_question_callback(self, msg):
         del msg
+        if os.environ.get("VOICE_ALLOW_RELAUNCH", "0") != "1":
+            print("stop_ui_question: 已忽略重拉（VOICE_ALLOW_RELAUNCH=0）")
+            return
         base_dir = os.path.dirname(os.path.abspath(__file__))
         ui_script  = os.path.abspath(
             os.path.join(base_dir, "../../../launch/launch_depends_ui_question.sh")

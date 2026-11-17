@@ -1,0 +1,628 @@
+{
+  "rag_url": "http://127.0.0.1:8765",
+  "top_k": 4,
+  "recall": 1.0,
+  "n": 15,
+  "rows": [
+    {
+      "id": 1,
+      "question": "我下周开始第一次透析，去之前要准备什么？",
+      "type": "fact",
+      "expected_docs": [
+        "01_first_dialysis.md"
+      ],
+      "hit": true,
+      "top_titles": [
+        "首次透析要注意什么",
+        "血液透析患者内瘘手术宣教",
+        "血液透析患者常见检验项目"
+      ],
+      "took_ms": 8.96,
+      "chunks": [
+        {
+          "id": "01_first_dialysis.md#2",
+          "doc_id": "01_first_dialysis",
+          "title": "首次透析要注意什么",
+          "score": 0.021867
+        },
+        {
+          "id": "09_avf_surgery.md#2",
+          "doc_id": "09_avf_surgery",
+          "title": "血液透析患者内瘘手术宣教",
+          "score": 0.021097
+        },
+        {
+          "id": "11_lab_tests.md#6",
+          "doc_id": "11_lab_tests",
+          "title": "血液透析患者常见检验项目",
+          "score": 0.02094
+        },
+        {
+          "id": "09_avf_surgery.md#4",
+          "doc_id": "09_avf_surgery",
+          "title": "血液透析患者内瘘手术宣教",
+          "score": 0.020928
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "question": "我每周透析三次，一天到底能喝多少水？",
+      "type": "fact",
+      "expected_docs": [
+        "02_fluid_control.md"
+      ],
+      "hit": true,
+      "top_titles": [
+        "血液透析患者如何控水（水平衡管理）",
+        "首次透析要注意什么",
+        "透析患者该如何运动"
+      ],
+      "took_ms": 9.24,
+      "chunks": [
+        {
+          "id": "02_fluid_control.md#2",
+          "doc_id": "02_fluid_control",
+          "title": "血液透析患者如何控水（水平衡管理）",
+          "score": 0.022131
+        },
+        {
+          "id": "01_first_dialysis.md#2",
+          "doc_id": "01_first_dialysis",
+          "title": "首次透析要注意什么",
+          "score": 0.021514
+        },
+        {
+          "id": "10_exercise.md#7",
+          "doc_id": "10_exercise",
+          "title": "透析患者该如何运动",
+          "score": 0.018557
+        },
+        {
+          "id": "10_exercise.md#1",
+          "doc_id": "10_exercise",
+          "title": "透析患者该如何运动",
+          "score": 0.015873
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "question": "内瘘的震颤摸不到了，是不是堵了？",
+      "type": "safety",
+      "expected_docs": [
+        "04_avf_occlusion.md",
+        "05_avf_post_dialysis.md",
+        "17_avf_home_care.md"
+      ],
+      "hit": true,
+      "top_titles": [
+        "内瘘的居家护理",
+        "内瘘患者如何预防闭塞",
+        "内瘘患者如何预防闭塞"
+      ],
+      "took_ms": 8.3,
+      "chunks": [
+        {
+          "id": "17_avf_home_care.md#2",
+          "doc_id": "17_avf_home_care",
+          "title": "内瘘的居家护理",
+          "score": 0.024787
+        },
+        {
+          "id": "04_avf_occlusion.md#1",
+          "doc_id": "04_avf_occlusion",
+          "title": "内瘘患者如何预防闭塞",
+          "score": 0.024387
+        },
+        {
+          "id": "04_avf_occlusion.md#2",
+          "doc_id": "04_avf_occlusion",
+          "title": "内瘘患者如何预防闭塞",
+          "score": 0.023629
+        },
+        {
+          "id": "05_avf_post_dialysis.md#1",
+          "doc_id": "05_avf_post_dialysis",
+          "title": "内瘘患者透析后注意事项",
+          "score": 0.023625
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "question": "透析完针眼什么时候能沾水？",
+      "type": "fact",
+      "expected_docs": [
+        "05_avf_post_dialysis.md",
+        "01_first_dialysis.md"
+      ],
+      "hit": true,
+      "top_titles": [
+        "内瘘患者透析后注意事项",
+        "血液透析患者内瘘手术宣教",
+        "新瘘穿刺启用宣教"
+      ],
+      "took_ms": 9.23,
+      "chunks": [
+        {
+          "id": "05_avf_post_dialysis.md#1",
+          "doc_id": "05_avf_post_dialysis",
+          "title": "内瘘患者透析后注意事项",
+          "score": 0.024204
+        },
+        {
+          "id": "09_avf_surgery.md#4",
+          "doc_id": "09_avf_surgery",
+          "title": "血液透析患者内瘘手术宣教",
+          "score": 0.02234
+        },
+        {
+          "id": "06_new_avf_puncture.md#1",
+          "doc_id": "06_new_avf_puncture",
+          "title": "新瘘穿刺启用宣教",
+          "score": 0.021997
+        },
+        {
+          "id": "01_first_dialysis.md#3",
+          "doc_id": "01_first_dialysis",
+          "title": "首次透析要注意什么",
+          "score": 0.021696
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "question": "内瘘侧胳膊能提东西、量血压吗？",
+      "type": "fact",
+      "expected_docs": [
+        "05_avf_post_dialysis.md",
+        "17_avf_home_care.md"
+      ],
+      "hit": true,
+      "top_titles": [
+        "内瘘的居家护理",
+        "新瘘穿刺启用宣教",
+        "血液透析患者内瘘手术宣教"
+      ],
+      "took_ms": 9.16,
+      "chunks": [
+        {
+          "id": "17_avf_home_care.md#3",
+          "doc_id": "17_avf_home_care",
+          "title": "内瘘的居家护理",
+          "score": 0.024787
+        },
+        {
+          "id": "06_new_avf_puncture.md#1",
+          "doc_id": "06_new_avf_puncture",
+          "title": "新瘘穿刺启用宣教",
+          "score": 0.024387
+        },
+        {
+          "id": "09_avf_surgery.md#7",
+          "doc_id": "09_avf_surgery",
+          "title": "血液透析患者内瘘手术宣教",
+          "score": 0.024
+        },
+        {
+          "id": "05_avf_post_dialysis.md#1",
+          "doc_id": "05_avf_post_dialysis",
+          "title": "内瘘患者透析后注意事项",
+          "score": 0.023625
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "question": "内瘘手术前要注意什么，抗凝药要不要停？",
+      "type": "multi",
+      "expected_docs": [
+        "09_avf_surgery.md"
+      ],
+      "hit": true,
+      "top_titles": [
+        "血液透析患者内瘘手术宣教",
+        "内瘘患者透析后注意事项",
+        "内瘘的居家护理"
+      ],
+      "took_ms": 9.57,
+      "chunks": [
+        {
+          "id": "09_avf_surgery.md#3",
+          "doc_id": "09_avf_surgery",
+          "title": "血液透析患者内瘘手术宣教",
+          "score": 0.024204
+        },
+        {
+          "id": "05_avf_post_dialysis.md#1",
+          "doc_id": "05_avf_post_dialysis",
+          "title": "内瘘患者透析后注意事项",
+          "score": 0.024125
+        },
+        {
+          "id": "17_avf_home_care.md#3",
+          "doc_id": "17_avf_home_care",
+          "title": "内瘘的居家护理",
+          "score": 0.023181
+        },
+        {
+          "id": "03_avf_infection.md#1",
+          "doc_id": "03_avf_infection",
+          "title": "动静脉内瘘感染的防治",
+          "score": 0.023095
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "question": "透析时头晕、抽筋是怎么回事？",
+      "type": "fact",
+      "expected_docs": [
+        "08_complications.md"
+      ],
+      "hit": true,
+      "top_titles": [
+        "透析相关并发症与处理",
+        "首次透析要注意什么",
+        "血透常用药物"
+      ],
+      "took_ms": 10.23,
+      "chunks": [
+        {
+          "id": "08_complications.md#3",
+          "doc_id": "08_complications",
+          "title": "透析相关并发症与处理",
+          "score": 0.021862
+        },
+        {
+          "id": "01_first_dialysis.md#2",
+          "doc_id": "01_first_dialysis",
+          "title": "首次透析要注意什么",
+          "score": 0.020663
+        },
+        {
+          "id": "12_medications.md#5",
+          "doc_id": "12_medications",
+          "title": "血透常用药物",
+          "score": 0.020532
+        },
+        {
+          "id": "08_complications.md#5",
+          "doc_id": "08_complications",
+          "title": "透析相关并发症与处理",
+          "score": 0.02036
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "question": "透析病人能运动吗？怎么运动比较安全？",
+      "type": "multi",
+      "expected_docs": [
+        "10_exercise.md"
+      ],
+      "hit": true,
+      "top_titles": [
+        "透析患者该如何运动",
+        "透析患者该如何运动",
+        "首次透析要注意什么"
+      ],
+      "took_ms": 8.24,
+      "chunks": [
+        {
+          "id": "10_exercise.md#1",
+          "doc_id": "10_exercise",
+          "title": "透析患者该如何运动",
+          "score": 0.022131
+        },
+        {
+          "id": "10_exercise.md#7",
+          "doc_id": "10_exercise",
+          "title": "透析患者该如何运动",
+          "score": 0.021774
+        },
+        {
+          "id": "01_first_dialysis.md#1",
+          "doc_id": "01_first_dialysis",
+          "title": "首次透析要注意什么",
+          "score": 0.020292
+        },
+        {
+          "id": "10_exercise.md#4",
+          "doc_id": "10_exercise",
+          "title": "透析患者该如何运动",
+          "score": 0.020149
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "question": "血钾和血磷要控制在多少？",
+      "type": "fact",
+      "expected_docs": [
+        "11_lab_tests.md"
+      ],
+      "hit": true,
+      "top_titles": [
+        "血液透析患者常见检验项目",
+        "透析患者该如何运动",
+        "血压管理与理想血压"
+      ],
+      "took_ms": 7.97,
+      "chunks": [
+        {
+          "id": "11_lab_tests.md#1",
+          "doc_id": "11_lab_tests",
+          "title": "血液透析患者常见检验项目",
+          "score": 0.022131
+        },
+        {
+          "id": "10_exercise.md#3",
+          "doc_id": "10_exercise",
+          "title": "透析患者该如何运动",
+          "score": 0.021353
+        },
+        {
+          "id": "13_blood_pressure.md#1",
+          "doc_id": "13_blood_pressure",
+          "title": "血压管理与理想血压",
+          "score": 0.02127
+        },
+        {
+          "id": "12_medications.md#5",
+          "doc_id": "12_medications",
+          "title": "血透常用药物",
+          "score": 0.020536
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "question": "透析前后血压多少算合适？",
+      "type": "fact",
+      "expected_docs": [
+        "13_blood_pressure.md",
+        "12_medications.md"
+      ],
+      "hit": true,
+      "top_titles": [
+        "血透常用药物",
+        "透析患者该如何运动",
+        "血压管理与理想血压"
+      ],
+      "took_ms": 8.65,
+      "chunks": [
+        {
+          "id": "12_medications.md#5",
+          "doc_id": "12_medications",
+          "title": "血透常用药物",
+          "score": 0.021862
+        },
+        {
+          "id": "10_exercise.md#3",
+          "doc_id": "10_exercise",
+          "title": "透析患者该如何运动",
+          "score": 0.021611
+        },
+        {
+          "id": "13_blood_pressure.md#1",
+          "doc_id": "13_blood_pressure",
+          "title": "血压管理与理想血压",
+          "score": 0.021353
+        },
+        {
+          "id": "13_blood_pressure.md#3",
+          "doc_id": "13_blood_pressure",
+          "title": "血压管理与理想血压",
+          "score": 0.020697
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "question": "我身上的导管能不能洗澡？",
+      "type": "fact",
+      "expected_docs": [
+        "16_catheter_care.md"
+      ],
+      "hit": true,
+      "top_titles": [
+        "血液透析导管的日常护理",
+        "血液透析导管的日常护理",
+        "血液透析导管的日常护理"
+      ],
+      "took_ms": 9.02,
+      "chunks": [
+        {
+          "id": "16_catheter_care.md#4",
+          "doc_id": "16_catheter_care",
+          "title": "血液透析导管的日常护理",
+          "score": 0.024683
+        },
+        {
+          "id": "16_catheter_care.md#1",
+          "doc_id": "16_catheter_care",
+          "title": "血液透析导管的日常护理",
+          "score": 0.023657
+        },
+        {
+          "id": "16_catheter_care.md#2",
+          "doc_id": "16_catheter_care",
+          "title": "血液透析导管的日常护理",
+          "score": 0.023586
+        },
+        {
+          "id": "16_catheter_care.md#5",
+          "doc_id": "16_catheter_care",
+          "title": "血液透析导管的日常护理",
+          "score": 0.023439
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "question": "导管周围红肿发热了怎么办？",
+      "type": "safety",
+      "expected_docs": [
+        "16_catheter_care.md"
+      ],
+      "hit": true,
+      "top_titles": [
+        "血液透析导管的日常护理",
+        "血液透析导管的日常护理",
+        "血液透析导管的日常护理"
+      ],
+      "took_ms": 8.13,
+      "chunks": [
+        {
+          "id": "16_catheter_care.md#8",
+          "doc_id": "16_catheter_care",
+          "title": "血液透析导管的日常护理",
+          "score": 0.024787
+        },
+        {
+          "id": "16_catheter_care.md#9",
+          "doc_id": "16_catheter_care",
+          "title": "血液透析导管的日常护理",
+          "score": 0.024004
+        },
+        {
+          "id": "16_catheter_care.md#6",
+          "doc_id": "16_catheter_care",
+          "title": "血液透析导管的日常护理",
+          "score": 0.023453
+        },
+        {
+          "id": "16_catheter_care.md#2",
+          "doc_id": "16_catheter_care",
+          "title": "血液透析导管的日常护理",
+          "score": 0.023222
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "question": "透析后总睡不着、心里烦，有什么办法？",
+      "type": "fact",
+      "expected_docs": [
+        "14_emotion.md"
+      ],
+      "hit": true,
+      "top_titles": [
+        "首次透析要注意什么",
+        "血透常用药物",
+        "透析患者情志指导"
+      ],
+      "took_ms": 9.7,
+      "chunks": [
+        {
+          "id": "01_first_dialysis.md#3",
+          "doc_id": "01_first_dialysis",
+          "title": "首次透析要注意什么",
+          "score": 0.020853
+        },
+        {
+          "id": "12_medications.md#5",
+          "doc_id": "12_medications",
+          "title": "血透常用药物",
+          "score": 0.01951
+        },
+        {
+          "id": "14_emotion.md#2",
+          "doc_id": "14_emotion",
+          "title": "透析患者情志指导",
+          "score": 0.018725
+        },
+        {
+          "id": "09_avf_surgery.md#4",
+          "doc_id": "09_avf_surgery",
+          "title": "血液透析患者内瘘手术宣教",
+          "score": 0.018718
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "question": "人工血管内瘘容易出现哪些问题？",
+      "type": "fact",
+      "expected_docs": [
+        "18_avg_complications.md"
+      ],
+      "hit": true,
+      "top_titles": [
+        "人工内瘘（AVG）常见并发症与处理",
+        "人工内瘘（AVG）常见并发症与处理",
+        "内瘘患者如何预防闭塞"
+      ],
+      "took_ms": 8.69,
+      "chunks": [
+        {
+          "id": "18_avg_complications.md#5",
+          "doc_id": "18_avg_complications",
+          "title": "人工内瘘（AVG）常见并发症与处理",
+          "score": 0.024491
+        },
+        {
+          "id": "18_avg_complications.md#2",
+          "doc_id": "18_avg_complications",
+          "title": "人工内瘘（AVG）常见并发症与处理",
+          "score": 0.022097
+        },
+        {
+          "id": "04_avf_occlusion.md#2",
+          "doc_id": "04_avf_occlusion",
+          "title": "内瘘患者如何预防闭塞",
+          "score": 0.021696
+        },
+        {
+          "id": "04_avf_occlusion.md#1",
+          "doc_id": "04_avf_occlusion",
+          "title": "内瘘患者如何预防闭塞",
+          "score": 0.02101
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "question": "耳穴压豆对我这种透析病人有用吗？",
+      "type": "fact",
+      "expected_docs": [
+        "19_tcm_ear.md"
+      ],
+      "hit": true,
+      "top_titles": [
+        "中医适宜技术（耳部）：耳尖放血、耳部刮痧、耳穴压豆",
+        "首次透析要注意什么",
+        "中医适宜技术（耳部）：耳尖放血、耳部刮痧、耳穴压豆"
+      ],
+      "took_ms": 8.17,
+      "chunks": [
+        {
+          "id": "19_tcm_ear.md#3",
+          "doc_id": "19_tcm_ear",
+          "title": "中医适宜技术（耳部）：耳尖放血、耳部刮痧、耳穴压豆",
+          "score": 0.026115
+        },
+        {
+          "id": "01_first_dialysis.md#2",
+          "doc_id": "01_first_dialysis",
+          "title": "首次透析要注意什么",
+          "score": 0.019754
+        },
+        {
+          "id": "19_tcm_ear.md#1",
+          "doc_id": "19_tcm_ear",
+          "title": "中医适宜技术（耳部）：耳尖放血、耳部刮痧、耳穴压豆",
+          "score": 0.01873
+        },
+        {
+          "id": "19_tcm_ear.md#2",
+          "doc_id": "19_tcm_ear",
+          "title": "中医适宜技术（耳部）：耳尖放血、耳部刮痧、耳穴压豆",
+          "score": 0.017879
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+[
+  {"id": 101, "question": "刚做完手术没几天，胳膊上鼓了个软软的包，超声说里面没有血流，这是啥？", "type": "hard_confusable",
+   "expected_points": ["血清肿", "人工血管周围肿块", "超声无血流信号"], "source_docs": ["18_avg_complications.md"]},
+  {"id": 102, "question": "护士说我的人工血管不能总在同一个地方扎针，为什么呀？", "type": "hard_confusable",
+   "expected_points": ["反复穿刺同一段", "假性动脉瘤"], "source_docs": ["18_avg_complications.md"]},
+  {"id": 103, "question": "脖子上那根管子，睡觉的时候要朝哪边躺？", "type": "hard_confusable",
+   "expected_points": ["朝向导管对侧卧", "避免压迫拉扯导管"], "source_docs": ["16_catheter_care.md"]},
+  {"id": 104, "question": "透析到一半老抽筋，跟我两次透析之间长得太重有关系吗？要怎么预防？", "type": "hard_multihop",
+   "expected_points": ["肌肉痉挛", "超滤过多过快", "体重增长不超过干体重5%"], "source_docs": ["08_complications.md", "02_fluid_control.md"]},
+  {"id": 105, "question": "内瘘手术拆线后多久能开始捏球？在家平时还要注意些啥？", "type": "hard_multihop",
+   "expected_points": ["术后10天左右握球", "震颤自查", "每日自我监测"], "source_docs": ["09_avf_surgery.md", "17_avf_home_care.md"]},
+  {"id": 106, "question": "今早血压有点高，去透析前我自己先把降压药加一片行不行？", "type": "hard_multihop",
+   "expected_points": ["遵医嘱", "透前减量或停服", "不能自行调药"], "source_docs": ["13_blood_pressure.md", "12_medications.md"]},
+  {"id": 107, "question": "做透析的时候家里人能进来陪着吗？", "type": "hard_multihop",
+   "expected_points": ["不能陪护", "相对隔离", "减少交叉感染"], "source_docs": ["07_unit_rules.md", "01_first_dialysis.md"]},
+  {"id": 108, "question": "耳朵上贴小豆子真能帮我睡好觉、通便吗？", "type": "hard_confusable",
+   "expected_points": ["耳穴压豆", "失眠便秘", "调节神经平衡"], "source_docs": ["19_tcm_ear.md"]}
+]

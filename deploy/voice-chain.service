@@ -1,0 +1,32 @@
+# 语音链 systemd 服务（开机自启 / 崩溃自动重启 / journald 日志）
+# 安装（需 sudo）：
+#   sudo cp deploy/voice-chain.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now voice-chain
+# 查看状态/日志：
+#   systemctl status voice-chain
+#   journalctl -u voice-chain -f          # 含每 10s 的存活状态行
+#   logs/voice_*/<节点>.log               # 各节点持久化日志
+# 停止：
+#   sudo systemctl stop voice-chain
+# 注意：与前台 ./voice_start.sh 互斥（单实例锁 /tmp/voice_stack.lock 自动仲裁）
+
+[Unit]
+Description=Medical Voice Chain (ASR-LLM-TTS)
+After=network-online.target sound.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=artrc
+WorkingDirectory=/home/artrc/medical_ws/Medical_Embodied_dev
+Environment=PYTHONNOUSERSITE=1
+Environment=LATENCY_PROBE=0
+Environment=TTS_DEBUG_DUP=0
+ExecStart=/usr/bin/python3 /home/artrc/medical_ws/Medical_Embodied_dev/voice_terminal.py --headless
+Restart=always
+RestartSec=5
+# 崩溃风暴自愈由内置看门狗负责；systemd 只兜底整个终端进程崩溃
+KillMode=control-group
+
+[Install]
+WantedBy=multi-user.target

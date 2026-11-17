@@ -1,3 +1,0 @@
-[INFO] [1782198311.248609583] [tf2_echo]: Waiting for transform map ->  rslidar: Invalid frame ID "map" passed to canTransform argument target_frame - frame does not exist
-[INFO] [1782198313.230544678] [tf2_echo]: Waiting for transform map ->  rslidar: Invalid frame ID "map" passed to canTransform argument target_frame - frame does not exist
-[INFO] [1782198316.017395663] [rclcpp]: signal_handler(SIGINT/SIGTERM)
